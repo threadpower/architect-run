@@ -138,6 +138,11 @@ class GoodRun(R3Base):
     def test_one_code_fence_around_the_object_is_tolerated(self):
         self.assertEqual(self.r3("r3_fenced").returncode, 0)
 
+    def test_a_thinking_block_before_the_answer_is_ignored(self):
+        r = self.r3("r3_thinking")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertEqual(sorted(os.listdir(os.path.join(self.root, RUN))), ["r3_toy_test.py", "slug.py"])
+
     def test_a_dry_run_can_be_repeated_only_after_its_ledger_is_removed(self):
         self.assertEqual(self.r3().returncode, 0)
         r = self.r3()                                        # one run fills the month
@@ -160,6 +165,47 @@ class WritesNothing(R3Base):
             self.wrote_nothing(r, code)
             self.assertIn(needle, r.stdout, fixture)
             self.assertIn("Nothing written", r.stdout, fixture)
+
+    def evidence(self):
+        d = os.path.join(self.root, "outbox")
+        return [read(os.path.join(d, f)) for f in sorted(os.listdir(d)) if "REJECTED" in f]
+
+    def test_prose_around_the_object_a_tool_block_or_no_text_is_fail_and_is_kept_as_evidence(self):
+        for fixture, types in (("r3_prose", "text"), ("r3_tool", "tool_use"), ("r3_only_thinking", "thinking"),
+                               ("r3_two_texts", "text, text")):
+            self.tearDown()
+            self.setUp()
+            r = self.r3(fixture)
+            self.wrote_nothing(r, 4)
+            self.assertIn("was not one JSON object of text", r.stdout, fixture)
+            ev = self.evidence()
+            self.assertEqual(len(ev), 1, fixture)
+            for want in ("Content block types, in order: " + types, "stop_reason:", "output 300 tokens", "FIXTURE",
+                         "Nothing was written under work/ and nothing was run"):
+                self.assertIn(want, ev[0], fixture)
+        self.tearDown()
+        self.setUp()
+        self.r3("r3_prose")
+        self.assertIn("Let me know if you want changes.", self.evidence()[0])     # the words that broke it are kept
+
+    def test_thinking_content_and_signature_never_reach_the_report_or_the_log(self):
+        for fixture in ("r3_thinking", "r3_only_thinking"):
+            self.tearDown()
+            self.setUp()
+            r = self.r3(fixture)
+            seen = r.stdout + r.stderr
+            for top in ("log", "outbox", "work"):
+                for base, _d, files in os.walk(os.path.join(self.root, top)):
+                    for f in files:
+                        seen += read(os.path.join(base, f))
+            self.assertNotIn("SECRET-REASONING", seen, fixture)
+            self.assertNotIn("SIG-0123456789", seen, fixture)
+
+    def test_a_refused_path_is_also_kept_as_evidence_and_never_under_work(self):
+        r = self.r3("r3_dotdot")
+        self.wrote_nothing(r, 3)
+        self.assertIn("../slug.py", self.evidence()[0])
+        self.assertEqual(len(self.evidence()), 1)
 
     def test_a_test_file_that_does_not_match_its_hash_stops_before_any_call(self):
         with open(os.path.join(self.root, "inbox", "r3_toy_test.py"), "a") as fh:
@@ -272,7 +318,10 @@ class LivePathWithoutANetwork(R3Base):
                          % os.path.join(self.root, "r3_child.py"))
         packet = json.loads(read(self.stdin))
         self.assertEqual(packet["key"], KEY)
-        self.assertEqual(set(packet["request"]), {"model", "max_tokens", "system", "messages"})
+        self.assertEqual(set(packet["request"]), {"model", "max_tokens", "system", "messages", "thinking"})
+        self.assertEqual(packet["request"]["thinking"], {"type": "disabled"})
+        for absent in ("tools", "output_config", "effort"):
+            self.assertNotIn(absent, json.dumps(packet["request"]))
         self.assertEqual((packet["request"]["model"], packet["request"]["max_tokens"]), ("claude-haiku-5-5", 1024))
         self.assertNotIn(KEY, json.dumps(packet["request"]))
         self.assertNotIn("assertEqual", json.dumps(packet["request"]))        # nothing from the test file
@@ -349,6 +398,10 @@ class Child(R3Base):
         self.assertFalse(json.loads(self.child(["--fixture", fx], {"request": self.REQ},
                                                env={"ANTHROPIC_API_KEY": "sk-ant-CANARY"}).stdout)["ok"])
         self.assertFalse(json.loads(self.child(["--fixture", fx], {"request": dict(self.REQ, tools=[])}).stdout)["ok"])
+        self.assertFalse(json.loads(self.child(["--fixture", fx], {"request": dict(self.REQ, tool_choice={})}).stdout)["ok"])
+        self.assertFalse(json.loads(self.child(["--fixture", fx], {"request": dict(self.REQ, output_config={})}).stdout)["ok"])
+        ok = dict(self.REQ, thinking={"type": "disabled"})
+        self.assertTrue(json.loads(self.child(["--fixture", fx], {"request": ok}).stdout)["ok"])
         self.assertFalse(json.loads(self.child(["--fixture", fx], {"key": KEY, "request": self.REQ}).stdout)["ok"])
         self.assertTrue(json.loads(self.child(["--fixture", fx], {"request": self.REQ}).stdout)["ok"])
 

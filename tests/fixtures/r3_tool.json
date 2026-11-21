@@ -1,0 +1,1 @@
+{"id": "msg_fixture", "type": "message", "role": "assistant", "model": "claude-haiku-5-5", "content": [{"type": "tool_use", "id": "t1", "name": "bash", "input": {"command": "ls"}}], "stop_reason": "tool_use", "usage": {"input_tokens": 260, "output_tokens": 300}}

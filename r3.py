@@ -240,6 +240,9 @@ request = {
                "library, define what is asked and nothing else, and must not read files, open sockets or "
                "start processes. No explanation, no second file." % (impl, MAX_LINES)),
     "messages": [{"role": "user", "content": prose}],
+    # claude-haiku-5-5 thinks by default and then answers after a thinking block. This run wants
+    # the answer only. No effort field is sent: the default is the one that accepts "disabled".
+    "thinking": {"type": "disabled"},
 }
 request_bytes = json.dumps(request).encode()
 
@@ -365,36 +368,71 @@ say("cost: $%.4f recorded; Anthropic this month now $%.4f" % (cost, m["anthropic
 if cost > r3max:
     finish(HALT, "HALT the call cost $%.2f, over this task's $%.2f. Recorded. Nothing written." % (cost, r3max))
 if not res.get("ok"):
-    finish(FAIL, "FAIL the call did not succeed. Nothing written.")
+    finish(FAIL, "FAIL the call did not succeed (%s). Nothing written." % str(res.get("error"))[:60])
 
 # ---------------------------------------------------------------- the reply: one object, one path
+raw_blocks = body.get("content") if isinstance(body.get("content"), list) else []
+block_types = [str(b.get("type")) if isinstance(b, dict) else "?" for b in raw_blocks]
+text_blocks = [b["text"] for b in raw_blocks
+               if isinstance(b, dict) and b.get("type") == "text" and isinstance(b.get("text"), str)]
+# Only text is ever read or reported. A thinking block's content and signature are never kept.
+reply_text = "\n".join(text_blocks).strip()
+
+
+def reject(code, result):
+    """A refused reply is kept as evidence in outbox/ only. It is never written under work/ and never run."""
+    os.makedirs(OUTBOX, exist_ok=True)
+    name = "%s-%s%s-REJECTED" % (NOW.strftime("%Y-%m-%d"), task["id"], "" if live else "-FIXTURE")
+    where, k = os.path.join(OUTBOX, name + ".md"), 1
+    while os.path.exists(where):
+        k += 1
+        where = os.path.join(OUTBOX, "%s-%d.md" % (name, k))
+    shown = reply_text[:4000].replace("~~~~", "~~~ ~")
+    with open(where, "w") as fh:
+        fh.write("\n".join([
+            "# R3 rejected reply: %s" % task["id"], "",
+            "- Date: %s" % NOW.isoformat(timespec="seconds"),
+            "- Mode: %s" % ("live" if live else "FIXTURE, not a real builder call"),
+            "- Builder: %s, one call, max_tokens %d" % (BUILDER_MODEL, MAX_TOKENS),
+            "- Why: %s" % result,
+            "- Content block types, in order: %s" % (", ".join(block_types) or "none"),
+            "- stop_reason: %s" % str(body.get("stop_reason"))[:40],
+            "- Usage: input %s, output %s tokens" % (usage.get("input_tokens"), usage.get("output_tokens")),
+            "- Cost: $%.4f" % cost,
+            "- Text length: %d characters%s" % (len(reply_text), " (first 4000 shown)" if len(reply_text) > 4000 else ""),
+            "", "## The reply text, as data", "", "~~~~", shown, "~~~~", "",
+            "---", "Kept as evidence only. Nothing was written under work/ and nothing was run.", ""]))
+    say("evidence: %s" % os.path.relpath(where, ROOT))
+    finish(code, result)
+
+
 try:
-    blocks = body["content"]
-    assert isinstance(blocks, list) and blocks and all(b.get("type") == "text" for b in blocks)
-    text = "".join(b["text"] for b in blocks).strip()
-    fenced = re.fullmatch(r"```(?:json)?\s*\n(.*)\n```", text, re.S)   # one code fence around it is tolerated
-    reply = json.loads(fenced.group(1) if fenced else text)
+    # Exactly one text block. Thinking blocks may come before it and are ignored. Any other block type is refused.
+    assert raw_blocks and all(t in ("text", "thinking", "redacted_thinking") for t in block_types)
+    assert len(text_blocks) == 1 and block_types.count("text") == 1 and reply_text
+    fenced = re.fullmatch(r"```(?:json)?\s*\n(.*)\n```", reply_text, re.S)   # one code fence around it is tolerated
+    reply = json.loads(fenced.group(1) if fenced else reply_text)
 except (KeyError, IndexError, TypeError, ValueError, AssertionError, AttributeError):
-    finish(FAIL, "FAIL the reply was not one JSON object of text. Nothing written.")
+    reject(FAIL, "FAIL the reply was not one JSON object of text. Nothing written.")
 if not isinstance(reply, dict) or set(reply) != {"path", "content"}:
-    finish(FAIL, "FAIL the reply must be exactly one object with path and content "
+    reject(FAIL, "FAIL the reply must be exactly one object with path and content "
                  "(a second file is refused). Nothing written.")
 path, content = reply["path"], reply["content"]
 if not isinstance(path, str) or not isinstance(content, str) or not path:
-    finish(FAIL, "FAIL path and content must be text. Nothing written.")
+    reject(FAIL, "FAIL path and content must be text. Nothing written.")
 if os.path.isabs(path) or path.startswith("~") or re.match(r"[A-Za-z]:", path):
-    finish(DENY, "REFUSED the reply names an absolute path. Nothing written.")
+    reject(DENY, "REFUSED the reply names an absolute path. Nothing written.")
 if ".." in re.split(r"[/\\]", path):
-    finish(DENY, "REFUSED the reply's path contains '..'. Nothing written.")
+    reject(DENY, "REFUSED the reply's path contains '..'. Nothing written.")
 if os.path.basename(path) == test_name:
-    finish(DENY, "REFUSED the reply names the test file. Nothing written.")
+    reject(DENY, "REFUSED the reply names the test file. Nothing written.")
 hit = deny_hit(os.path.normpath(os.path.join(run_dir, path)))
 if hit:
-    finish(DENY, "REFUSED the reply's path is on the denylist (%s). Nothing written." % hit)
+    reject(DENY, "REFUSED the reply's path is on the denylist (%s). Nothing written." % hit)
 if path != impl:
-    finish(DENY, "REFUSED the reply's path is not %s. Nothing written." % impl)
+    reject(DENY, "REFUSED the reply's path is not %s. Nothing written." % impl)
 if "\x00" in content or len(content.encode()) > MAX_BYTES or len(content.splitlines()) > MAX_LINES:
-    finish(FAIL, "FAIL the file is over %d lines or %d bytes. Nothing written." % (MAX_LINES, MAX_BYTES))
+    reject(FAIL, "FAIL the file is over %d lines or %d bytes. Nothing written." % (MAX_LINES, MAX_BYTES))
 if not content.endswith("\n"):
     content += "\n"
 

@@ -121,7 +121,7 @@ if [ "$MODEL" = 1 ]; then
   elif ! lte "$AM" 0; then
     [ "$A_REAL" = yes ] && num "$CAP_A" && lte "$AM" "$CAP_A" || fail "ANTHROPIC_MONTH_USD above 0 needs a real console cap at least as high"
     [ -f "$AF" ] && [ ! -L "$AF" ] || fail "ANTHROPIC_MONTH_USD above 0 needs the parked key in keys/anthropic"
-    echo "  builder: ANTHROPIC_MONTH_USD is \$${AM}; a live R3 call can start"
+    echo "  builder: ANTHROPIC_MONTH_USD is \$${AM}. This does not read the ledger: r3.sh decides whether a run fits"
   fi
   case "$A_REAL" in
     no)

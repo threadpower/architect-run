@@ -40,8 +40,9 @@ def main():
     except (ValueError, KeyError, TypeError):
         out(False, error="no request on stdin")
 
-    if not isinstance(request, dict) or set(request) != {"model", "max_tokens", "system", "messages"}:
-        out(False, error="request must hold exactly model, max_tokens, system and messages (no tools)")
+    need, may = {"model", "max_tokens", "system", "messages"}, {"thinking"}
+    if not isinstance(request, dict) or not need <= set(request) <= need | may:
+        out(False, error="request may hold only model, max_tokens, system, messages and thinking (no tools)")
 
     if fixture:
         if "key" in packet:

@@ -1,0 +1,1 @@
+{"id": "msg_fixture", "type": "message", "role": "assistant", "model": "claude-haiku-5-5", "content": [{"type": "thinking", "thinking": "SECRET-REASONING about the task", "signature": "SIG-0123456789"}], "stop_reason": "max_tokens", "usage": {"input_tokens": 260, "output_tokens": 300}}

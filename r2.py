@@ -21,7 +21,7 @@ OK, REFUSED, DENY, FAIL, ENV, HALT = 0, 2, 3, 4, 5, 10
 WORK, INBOX, OUTBOX, BUDGET, LOGDIR, RULINGS, KEYS = (os.path.join(ROOT, d) for d in (
     "work", "inbox", "outbox", "budget", "log", "rulings", "keys"))
 FIXTURES = os.path.join(ROOT, "tests", "fixtures")
-LEDGER = os.path.join(BUDGET, "ledger.json")
+LEDGER = os.path.join(BUDGET, "ledger.json")  # re-pointed below for a fixture run
 CHILD = os.path.join(ROOT, "r2_child.py")
 NOW = datetime.datetime.now().astimezone()
 lines = []
@@ -89,6 +89,11 @@ if live and fixture:
     finish(REFUSED, "REFUSED choose one: ARCHITECT_LIVE=1 or --fixture, not both")
 if not live and not fixture:
     finish(REFUSED, "REFUSED no live call without ARCHITECT_LIVE=1. For a dry run pass --fixture FILE")
+
+# A fixture run never touches the real ledger: a dry run must not be able to open
+# a hold that blocks R1 or a live call. run.sh only ever reads budget/ledger.json.
+if not live:
+    LEDGER = os.path.join(BUDGET, "ledger.fixture.json")
 
 # ---------------------------------------------------------------- limits and denylist
 KEYS_NEEDED = ("TASK_USD", "TASK_HALT_PCT", "MONTH_USD", "MONTH_HALT_PCT", "WALL_CLOCK_S",
@@ -177,7 +182,8 @@ request = {
     ],
     "response_format": {"type": "json_schema",
                         "json_schema": {"name": "spec_rulings", "schema": schema, "strict": True}},
-    "max_tokens": int(L["R2_MAX_OUTPUT_TOKENS"]),
+    "max_completion_tokens": int(L["R2_MAX_OUTPUT_TOKENS"]),  # caps visible output only, not reasoning
+    "reasoning_effort": "low",
 }
 request_bytes = json.dumps(request).encode()
 
@@ -217,11 +223,13 @@ spent, xai_spent = float(m.get("spent_usd", 0.0)), float(m.get("xai_usd", 0.0))
 r2max = L["R2_TASK_USD"]
 month_halt = L["MONTH_USD"] * L["MONTH_HALT_PCT"] / 100.0
 xai_halt = L["XAI_MONTH_USD"] * L["MONTH_HALT_PCT"] / 100.0
+say("ledger: %s" % os.path.relpath(LEDGER, ROOT))
 say("budget: %s spent $%.2f of $%.2f (halt $%.2f)  xAI $%.2f of $%.2f  this task max $%.2f"
     % (month, spent, L["MONTH_USD"], month_halt, xai_spent, L["XAI_MONTH_USD"], r2max))
 if ledger["holds"]:
-    finish(HALT, "HALT an unreconciled spending hold is open (%s). Clear it with setup/clear-hold.sh"
-           % ledger["holds"][0].get("id", "?"))
+    finish(HALT, "HALT an unreconciled spending hold is open (%s). %s" % (
+        ledger["holds"][0].get("id", "?"),
+        "Clear it with setup/clear-hold.sh" if live else "Fixture ledger only: delete budget/ledger.fixture.json"))
 if spent + r2max > month_halt:
     finish(HALT, "HALT month spend $%.2f plus this task's $%.2f passes the halt line $%.2f"
            % (spent, r2max, month_halt))
@@ -274,17 +282,22 @@ if usage:
         cd = usage.get("completion_tokens_details") or usage.get("output_tokens_details") or {}
         cached = pd.get("cached_tokens", 0) if isinstance(pd.get("cached_tokens", 0), int) else 0
         reasoning = cd.get("reasoning_tokens", 0) if isinstance(cd.get("reasoning_tokens", 0), int) else 0
-        # Reasoning tokens are added on top of completion tokens: if the API already
-        # counts them inside completion_tokens this overstates the cost, never understates it.
+        # xAI reports reasoning tokens outside completion_tokens and bills them at the
+        # completion price, so they are added here. That is the correct count, not padding.
         cost = ((pt - cached) * L["XAI_IN_PER_M"] + cached * L["XAI_CACHED_IN_PER_M"]
                 + (ct + reasoning) * L["XAI_OUT_PER_M"]) / 1e6
+    # The provider's own figure, when present: dollars = ticks / 10,000,000,000. It can
+    # include charges the token formula cannot see, so the greater of the two is recorded.
+    ticks = usage.get("cost_in_usd_ticks")
+    if isinstance(ticks, (int, float)) and not isinstance(ticks, bool) and ticks >= 0:
+        cost = max(cost or 0.0, ticks / 1e10)
 if cost is None:
     finish(HALT, "HALT no token usage came back; the $%.2f hold stays open and blocks the next run" % r2max)
 ledger["holds"] = [h for h in ledger["holds"] if h is not hold]
 m["spent_usd"] = round(spent + cost, 4)
 m["xai_usd"] = round(xai_spent + cost, 4)
 save_ledger(ledger)
-say("cost: $%.4f from token usage; month now $%.2f" % (cost, m["spent_usd"]))
+say("cost: $%.4f (greater of token formula and provider figure); month now $%.2f" % (cost, m["spent_usd"]))
 
 # ---------------------------------------------------------------- the spec must be untouched
 with open(spec_file, "rb") as fh:

@@ -49,13 +49,22 @@ class R2Base(v1.Base):
             args += ["--fixture", "tests/fixtures/%s.json" % fixture]
         return subprocess.run(args, cwd=self.root, env=env, capture_output=True, text=True, timeout=60)
 
+    FIX = "budget/ledger.fixture.json"      # what a fixture run reads and writes
+    REAL = "budget/ledger.json"             # what run.sh and a live call read and write
+
+    def ledger(self, which=None):
+        return json.loads(read(os.path.join(self.root, which or self.FIX)))
+
+    def no_ledger(self):
+        return not self.exists(self.FIX) and not self.exists(self.REAL)
+
     def month(self):
         return self.ledger()["months"][datetime.datetime.now().strftime("%Y-%m")]
 
     def seed(self, spent, xai=0.0, holds=()):
         os.makedirs(os.path.join(self.root, "budget"), exist_ok=True)
         month = datetime.datetime.now().strftime("%Y-%m")
-        write(os.path.join(self.root, "budget", "ledger.json"), json.dumps(
+        write(os.path.join(self.root, self.FIX), json.dumps(
             {"version": 1, "months": {month: {"spent_usd": spent, "xai_usd": xai}},
              "successes": {}, "holds": list(holds)}))
 
@@ -96,13 +105,13 @@ class SpecRound(R2Base):
         r = self.r2()
         self.assertEqual(r.returncode, 2)
         self.assertEqual(self.rulings(), [])
-        self.assertFalse(self.exists("budget/ledger.json"))
+        self.assertTrue(self.no_ledger())
 
     def test_expect_must_match_the_spec(self):
         self.r2task(expect="0" * 64)
         r = self.r2()
         self.assertEqual(r.returncode, 4)
-        self.assertFalse(self.exists("budget/ledger.json"), "no hold may be placed")
+        self.assertTrue(self.no_ledger(), "no hold may be placed")
         self.assertEqual(self.rulings(), [])
 
     def test_spec_must_live_in_inbox(self):
@@ -180,20 +189,44 @@ class Money(R2Base):
         self.assertEqual(r.returncode, 10)
         self.assertIn("hold", r.stdout)
         self.assertEqual(stamp, os.stat(os.path.join(self.root, "work", "r2-test.request.json")).st_mtime_ns)
-        self.assertEqual(self.run_sh("run.sh").returncode, 10, "R1 must halt on an open hold too")
+
+    def test_a_fixture_run_never_touches_the_real_ledger(self):
+        self.assertEqual(self.r2("no_usage").returncode, 10)       # opens a hold, in the fixture ledger
+        self.assertEqual(len(self.ledger(self.FIX)["holds"]), 1)
+        self.assertFalse(self.exists(self.REAL), "a dry run must not create budget/ledger.json")
+        self.assertEqual(self.run_sh("run.sh").returncode, 0, "a fixture hold must not block R1")
+        self.assertEqual(self.ledger(self.REAL).get("holds", []), [])
+
+    def test_run_sh_only_reads_the_real_ledger(self):
+        src = read(os.path.join(HERE, "run.sh"))
+        self.assertIn('"ledger.json"', src)
+        self.assertNotIn("ledger.fixture", src)
+
+    def test_provider_cost_figure_wins_when_it_is_higher(self):
+        self.assertEqual(self.r2("ticks_high").returncode, 0)
+        self.assertAlmostEqual(self.month()["spent_usd"], 0.25, places=4)
+
+    def test_token_formula_wins_when_the_provider_figure_is_lower(self):
+        self.assertEqual(self.r2("ticks_low").returncode, 0)
+        self.assertAlmostEqual(self.month()["spent_usd"], OK_COST, places=4)
+
+    def test_provider_figure_alone_is_enough_to_reconcile(self):
+        self.assertEqual(self.r2("ticks_only").returncode, 0)
+        self.assertAlmostEqual(self.month()["spent_usd"], 0.50, places=4)
+        self.assertEqual(self.ledger()["holds"], [])
 
     def test_one_task_cannot_be_allowed_more_than_two_dollars(self):
         self.assertIn("R2_TASK_USD=2\n", read(os.path.join(HERE, "limits.env")))
         self.edit("limits.env", "R2_TASK_USD=2", "R2_TASK_USD=9")      # above the $8 global task cap
         self.assertEqual(self.r2().returncode, 2)
-        self.assertFalse(self.exists("budget/ledger.json"))
+        self.assertTrue(self.no_ledger())
 
     def test_worst_case_over_the_task_max_is_refused_before_the_call(self):
         self.edit("limits.env", "R2_MAX_OUTPUT_TOKENS=16000", "R2_MAX_OUTPUT_TOKENS=900000")   # $5.40 of output
         r = self.r2()
         self.assertEqual(r.returncode, 2)
         self.assertIn("worst-case", r.stdout)
-        self.assertFalse(self.exists("budget/ledger.json"))
+        self.assertTrue(self.no_ledger())
 
     def test_actual_cost_over_the_task_max_is_HALT(self):
         r = self.r2("overspend")                           # fixture costs $3.00
@@ -207,7 +240,7 @@ class Isolation(R2Base):
         r = self.r2(fixture=None)
         self.assertEqual(r.returncode, 2)
         self.assertIn("ARCHITECT_LIVE=1", r.stdout)
-        self.assertFalse(self.exists("budget/ledger.json"))
+        self.assertTrue(self.no_ledger())
 
     def test_request_holds_spec_and_rubric_and_no_key(self):
         self.r2()
@@ -215,6 +248,10 @@ class Isolation(R2Base):
         self.assertIn("MARKER-SPEC-TEXT", req)
         self.assertIn("x-pass-requires", req)
         self.assertIn('"model": "grok-4.7"', req)
+        body = json.loads(req)
+        self.assertEqual(body["reasoning_effort"], "low")
+        self.assertEqual(body["max_completion_tokens"], 16000)
+        self.assertNotIn("max_tokens", body)
         for secret in list(v1.CANARY_ENV.values()) + [KEY_CANARY, "Bearer"]:
             self.assertNotIn(secret, req)
 
@@ -253,7 +290,8 @@ class Isolation(R2Base):
         self.assertEqual(rec.splitlines()[0], "runuser -u architect -- env -i PATH=/usr/bin:/bin python3 %s --live"
                          % os.path.join(self.root, "r2_child.py"))
         self.assertNotIn(KEY_CANARY, rec.splitlines()[0], "the key must never be on a command line")
-        self.assertEqual(len(self.ledger()["holds"]), 1)
+        self.assertEqual(len(self.ledger(self.REAL)["holds"]), 1, "a live call holds in the real ledger")
+        self.assertFalse(self.exists(self.FIX))
         self.assertEqual(self.rulings(), [])
         for text in (r.stdout, r.stderr, self.log(), read(os.path.join(self.root, "work", "r2-test.request.json"))):
             self.assertNotIn(KEY_CANARY, text)
@@ -264,7 +302,7 @@ class Isolation(R2Base):
         r = self.r2(live=True)
         self.assertEqual(r.returncode, 5, r.stdout)
         self.assertFalse(os.path.exists(self.sudo_log), "sudo must not be reached")
-        self.assertFalse(self.exists("budget/ledger.json"), "no hold may be placed")
+        self.assertTrue(self.no_ledger(), "no hold may be placed")
 
     def test_live_call_is_refused_while_beacon_seo_is_failed(self):
         self.live_ready()

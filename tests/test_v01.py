@@ -402,7 +402,8 @@ class Hygiene(Base):
             "setup/1-check-march-repo.sh", "setup/2-first-commit.sh", "setup/4-place-keys.sh",
             "setup/5a-make-user.sh", "setup/5b-prove-user.sh", "setup/clear-hold.sh",
             "tests/test_v01.py", "tests/test_v02.py", "tests/fixtures/ok.json", "tests/fixtures/dollar.json",
-            "tests/fixtures/overspend.json", "tests/fixtures/no_usage.json", "tests/fixtures/bad_content.json"})
+            "tests/fixtures/overspend.json", "tests/fixtures/no_usage.json", "tests/fixtures/bad_content.json",
+            "tests/fixtures/ticks_high.json", "tests/fixtures/ticks_low.json", "tests/fixtures/ticks_only.json"})
 
     def test_no_units_timers_or_compose(self):
         for name in ("run.sh", "preflight.sh"):

@@ -13,3 +13,5 @@ secrets*.env
 __pycache__/
 *.zip
 *.tar.gz
+# A dry run against a fixture is not a real review and is never committed.
+rulings/*-FIXTURE*

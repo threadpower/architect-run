@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "architect-run reviewer verdict",
+  "description": "The only shape a reviewer verdict may take. run.sh enforces x-pass-requires; a verdict of pass that does not meet every line of it is treated as not a pass.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verdict", "notes", "mechanical_ok", "secrets_seen", "prod_paths", "tests_cover_clauses", "doctrine_touched"],
+  "properties": {
+    "verdict": {"enum": ["pass", "revise", "halt"]},
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "line", "why", "spec_clause"],
+        "properties": {
+          "path": {"type": "string"},
+          "line": {"type": "integer"},
+          "why": {"type": "string"},
+          "spec_clause": {"type": "string"}
+        }
+      }
+    },
+    "mechanical_ok": {"type": "boolean"},
+    "secrets_seen": {"type": "boolean"},
+    "prod_paths": {"type": "boolean"},
+    "tests_cover_clauses": {"type": "boolean"},
+    "doctrine_touched": {"type": "boolean"}
+  },
+  "x-pass-requires": {
+    "mechanical_ok": true,
+    "secrets_seen": false,
+    "prod_paths": false,
+    "doctrine_touched": false,
+    "tests_cover_clauses": true,
+    "notes_max": 0
+  }
+}

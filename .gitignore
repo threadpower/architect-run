@@ -1,0 +1,15 @@
+keys/
+budget/
+work/
+outbox/
+log/
+.env
+.env.*
+secrets*.env
+*.pem
+*.key
+*.sqlite
+*.db
+__pycache__/
+*.zip
+*.tar.gz

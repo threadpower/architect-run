@@ -1,0 +1,8 @@
+# R2: one spec round. The reviewer rules on a spec; the spec is never edited.
+# Copy this file, put the spec in inbox/, and fill in the last line yourself.
+id: r2-example
+kind: r2
+spec: inbox/your-spec.md
+# Jeremy writes this line by hand: the sha256 of the spec file.
+#   sha256sum inbox/your-spec.md
+expect_sha256:

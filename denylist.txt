@@ -1,0 +1,30 @@
+# Paths no run may touch. One entry per line.
+#   /abs/path   the path and everything under it
+#   **/name     any file or directory with this name, anywhere
+#   @self       this orchestrator's own directory, except work/ and inbox/
+#   @self/x     a subdirectory of the orchestrator
+# run.sh refuses to start if this file is missing, empty or unreadable.
+/forge/secrets.env
+/forge/secrets.qa.env
+/forge/.env
+**/.env
+/forge/forge-ads
+/forge/reverb
+/forge/beacon-ads
+/forge/beacon-seo
+/forge/harvester
+/forge/watchtower
+/forge/oracle
+/forge/oracle-harvester
+/forge/architect
+/forge/mission-control
+/forge/deploy
+/forge/forge_shell
+/forge/reverb/forge_shell
+/forge/warp/forge_shell
+@self
+@self/keys
+# Added by Claude beyond Grok's round-2 list (stricter, for his review):
+/forge/warp
+/forge/signal-api
+/forge/backups

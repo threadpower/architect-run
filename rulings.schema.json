@@ -1,0 +1,24 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["summary", "rulings", "blocking", "untestable_clauses"],
+  "properties": {
+    "summary": {"type": "string"},
+    "rulings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["clause", "verdict", "reason", "amendment"],
+        "properties": {
+          "clause": {"type": "string"},
+          "verdict": {"enum": ["agree", "amend", "reject"]},
+          "reason": {"type": "string"},
+          "amendment": {"type": "string"}
+        }
+      }
+    },
+    "blocking": {"type": "array", "items": {"type": "string"}},
+    "untestable_clauses": {"type": "array", "items": {"type": "string"}}
+  }
+}

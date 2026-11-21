@@ -1,0 +1,10 @@
+# R1: write one file, check its checksum. No model, no Docker, no network.
+# Flat "key: value" lines only.
+id: r1-checksum
+kind: r1
+target: work/r1.txt
+content: the cage holds
+# Jeremy writes this line by hand. No expect line, no run.
+# Get the value independently of run.sh:
+#   printf '%s\n' "the cage holds" | sha256sum
+expect_sha256: 69233070eb5ac179ff9794f4787c31d0353d0d6b125f6985043431ddab315fdb

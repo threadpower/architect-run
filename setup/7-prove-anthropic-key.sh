@@ -10,7 +10,7 @@
 # No key and no hash is ever printed. No network. Asks for sudo once, to test architect.
 #
 # The items: mode 600 and owned by you; ignored by git and not tracked; architect cannot
-# read it; limits.env says the console cap is real at 40 and the in-code budget is 0;
+# read it; limits.env says the console cap is real at 40 and the in-code budget is 0 or 2;
 # the xAI lines are as ruled; the R2 files never mention this key.
 # A script cannot see the Anthropic console. The $40 limit there is Jeremy's written line.
 set -u
@@ -44,7 +44,8 @@ val() { grep "^$1=" "$LM" 2>/dev/null | cut -d= -f2- | tr -d '[:space:]'; }
 want() { [ "$(grep -c "^$1=" "$LM" 2>/dev/null)" = 1 ] && [ "$(val "$1")" = "$2" ] || BAD+=("limits.env: $1 is not '$2'"); }
 want CONSOLE_CAP_ANTHROPIC_IS_REAL yes
 want CONSOLE_CAP_ANTHROPIC_USD 40
-want ANTHROPIC_MONTH_USD 0
+AM="$(val ANTHROPIC_MONTH_USD)"      # 0 (no builder call) or 2 (the one ruled run). Any other number fails.
+[ "$(grep -c '^ANTHROPIC_MONTH_USD=' "$LM" 2>/dev/null)" = 1 ] && { [ "$AM" = 0 ] || [ "$AM" = 2 ]; } || BAD+=("limits.env: ANTHROPIC_MONTH_USD is not 0 or 2")
 want CONSOLE_CAP_XAI_IS_REAL no
 want CONSOLE_CAP_XAI_USD ""
 want XAI_MONTH_USD 15

@@ -214,7 +214,7 @@ class Budget(Base):
                 "ROUNDS": "2", "DIFF_MAX_LINES": "400", "DIFF_MAX_FILES": "8",
                 "NEIGHBOR_MAX_FILES": "8", "NEIGHBOR_MAX_KB": "80", "WALL_CLOCK_S": "1500",
                 "CONSOLE_CAP_ANTHROPIC_USD": "40", "CONSOLE_CAP_ANTHROPIC_IS_REAL": "yes",
-                "ANTHROPIC_MONTH_USD": "0", "CONSOLE_CAP_XAI_USD": "",
+                "ANTHROPIC_MONTH_USD": "2", "CONSOLE_CAP_XAI_USD": "",
                 "CONSOLE_CAP_XAI_IS_REAL": "no"}
         got = dict(l.strip().split("=", 1) for l in read(os.path.join(HERE, "limits.env")).splitlines()
                    if "=" in l and not l.startswith("#"))
@@ -455,6 +455,9 @@ class Preflight(Base):
         os.makedirs(os.path.join(self.root, "keys"), mode=0o700)
         write(os.path.join(self.root, "keys", "xai"), "xai-TESTKEY-not-real-0000000000\n")
         os.chmod(os.path.join(self.root, "keys", "xai"), 0o600)
+        # The shipped Anthropic month is 2, which preflight allows only with the key parked.
+        write(os.path.join(self.root, "keys", "anthropic"), "sk-ant-TESTKEY-not-real-00000000\n")
+        os.chmod(os.path.join(self.root, "keys", "anthropic"), 0o600)
         self.shim("id", 'if [ "${2:-}" = architect ]; then case "$1" in -u) echo %s;; -Gn) echo "%s";; esac; '
                         'else exec /usr/bin/id "$@"; fi' % (uid, groups))
 
@@ -480,28 +483,30 @@ class Preflight(Base):
         self.edit("limits.env", "XAI_MONTH_USD=15", "XAI_MONTH_USD=16")
         self.model_fails("no higher than 15")
 
-    def test_anthropic_cap_needs_a_real_flag_and_a_zero_budget(self):
+    def test_anthropic_budget_is_0_or_at_most_2_with_a_real_cap_and_a_parked_key(self):
         self.ready_for_model()
         r = self.run_sh("preflight.sh", "--model")
         self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertIn("console cap: $40 on the Anthropic console; in-code Anthropic budget is $0", r.stdout)
-        self.assertNotIn("a live R3 call can start", r.stdout)
-        self.edit("limits.env", "ANTHROPIC_MONTH_USD=0", "ANTHROPIC_MONTH_USD=2.01")
+        self.assertIn("console cap: $40 on the Anthropic console; in-code Anthropic budget is $2", r.stdout)
+        self.assertIn("builder: ANTHROPIC_MONTH_USD is $2; a live R3 call can start", r.stdout)
+        self.edit("limits.env", "ANTHROPIC_MONTH_USD=2", "ANTHROPIC_MONTH_USD=2.01")
         self.model_fails("at most 2 for the one ruled run")
-        self.edit("limits.env", "ANTHROPIC_MONTH_USD=2.01", "ANTHROPIC_MONTH_USD=2")
-        self.model_fails("needs the parked key")                  # a budget with no key parked
-        kf = os.path.join(self.root, "keys", "anthropic")
-        write(kf, "sk-ant-TESTKEY-not-real-00000000\n")
-        os.chmod(kf, 0o600)
+        self.edit("limits.env", "ANTHROPIC_MONTH_USD=2.01", "ANTHROPIC_MONTH_USD=0")
         r = self.run_sh("preflight.sh", "--model")
         self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertIn("builder: ANTHROPIC_MONTH_USD is $2; a live R3 call can start", r.stdout)
-        os.remove(kf)
+        self.assertNotIn("a live R3 call can start", r.stdout)
+        os.remove(os.path.join(self.root, "keys", "anthropic"))
+        self.assertEqual(self.run_sh("preflight.sh", "--model").returncode, 0)     # a real cap, no budget, no key: fine
+        self.edit("limits.env", "ANTHROPIC_MONTH_USD=0", "ANTHROPIC_MONTH_USD=2")
+        self.model_fails("needs the parked key")                  # a budget with no key parked
         self.edit("limits.env", "ANTHROPIC_MONTH_USD=2", "ANTHROPIC_MONTH_USD=0")
         self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_IS_REAL=yes", "CONSOLE_CAP_ANTHROPIC_IS_REAL=no")
         self.model_fails("holds a number while CONSOLE_CAP_ANTHROPIC_IS_REAL=no")
         self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_USD=40\n", "CONSOLE_CAP_ANTHROPIC_USD=\n")
-        self.assertEqual(self.run_sh("preflight.sh", "--model").returncode, 0)     # no cap claimed, no key: fine
+        self.assertEqual(self.run_sh("preflight.sh", "--model").returncode, 0)     # no cap claimed, no budget, no key: fine
+        self.edit("limits.env", "ANTHROPIC_MONTH_USD=0", "ANTHROPIC_MONTH_USD=2")
+        self.model_fails("needs a real console cap")              # a budget with no real cap
+        self.edit("limits.env", "ANTHROPIC_MONTH_USD=2", "ANTHROPIC_MONTH_USD=0")
         self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_IS_REAL=no", "CONSOLE_CAP_ANTHROPIC_IS_REAL=yes")
         self.model_fails("needs a number above 0")
         self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_IS_REAL=yes", "CONSOLE_CAP_ANTHROPIC_IS_REAL=maybe")
@@ -543,6 +548,7 @@ class Preflight(Base):
 
     def test_a_symlinked_anthropic_key_is_refused(self):
         self.ready_for_model()
+        os.remove(os.path.join(self.root, "keys", "anthropic"))
         os.symlink(os.path.join(self.root, "keys", "xai"), os.path.join(self.root, "keys", "anthropic"))
         self.model_fails("keys/anthropic must be a plain file")
 

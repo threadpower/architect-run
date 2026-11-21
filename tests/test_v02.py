@@ -23,6 +23,7 @@ read, write = v1.read, v1.write
 SPEC = "# Hopper H1 (test spec)\n\n1. The widget stores ideas.\n2. Votes decide promotion.\nMARKER-SPEC-TEXT\n"
 SPEC_SHA = hashlib.sha256(SPEC.encode()).hexdigest()
 KEY_CANARY = "xai-CANARY-KEYFILE-000000000000"
+PARKED = "sk-ant-PARKED-not-real-000000000"   # stands in for the parked builder key
 OK_COST = (15000 * 2 + 5000 * 0.5 + (3000 + 1000) * 6) / 1e6   # ok.json usage at the limits.env prices
 
 
@@ -276,6 +277,11 @@ class Isolation(R2Base):
         os.makedirs(os.path.join(self.root, "keys"), mode=0o700)
         write(os.path.join(self.root, "keys", "xai"), KEY_CANARY + "\n")
         os.chmod(os.path.join(self.root, "keys", "xai"), 0o600)
+        # The shipped Anthropic month is 2, which preflight allows only with the builder key parked.
+        # R2 never opens this file. The two live tests below assert its content appears nowhere:
+        # not in the request, the log, stdout, the command line, or what is handed to the child.
+        write(os.path.join(self.root, "keys", "anthropic"), PARKED + "\n")
+        os.chmod(os.path.join(self.root, "keys", "anthropic"), 0o600)
         self.shim("systemctl", "echo inactive")
         self.shim("docker", "exit 0")
         self.shim("id", 'if [ "${2:-}" = architect ]; then case "$1" in -u) echo 1500;; -Gn) echo architect;; esac; '
@@ -297,6 +303,26 @@ class Isolation(R2Base):
         self.assertEqual(self.rulings(), [])
         for text in (r.stdout, r.stderr, self.log(), read(os.path.join(self.root, "work", "r2-test.request.json"))):
             self.assertNotIn(KEY_CANARY, text)
+        for text in (r.stdout, r.stderr, self.log(), rec, read(os.path.join(self.root, "work", "r2-test.request.json"))):
+            self.assertNotIn(PARKED, text)                 # the parked Anthropic key: R2 never opens it
+
+    def test_the_parked_anthropic_key_is_never_handed_to_the_r2_child(self):
+        self.live_ready()
+        stdin_log = os.path.join(self.tmp, "sudo.stdin")
+        self.shim("sudo", 'cat > "%s"\nexit 0' % stdin_log)          # records everything R2 hands to the child
+        r = self.r2(live=True)
+        self.assertEqual(r.returncode, 10, r.stdout)
+        handed = read(stdin_log)
+        self.assertEqual(json.loads(handed)["key"], KEY_CANARY)      # the xAI key, and only that one
+        self.assertNotIn(PARKED, handed)
+        self.assertNotIn("sk-ant-", handed)
+        seen = r.stdout + r.stderr
+        for top in ("log", "outbox", "work", "budget", "rulings"):   # everything a run can write
+            for base, _d, files in os.walk(os.path.join(self.root, top)):
+                for f in files:
+                    seen += read(os.path.join(base, f))
+        self.assertNotIn(PARKED, seen)
+        self.assertNotIn("sk-ant-", seen)
 
     def test_live_call_is_refused_when_preflight_model_fails(self):
         self.live_ready()
@@ -382,7 +408,7 @@ class Shipped(unittest.TestCase):
         text = read(os.path.join(HERE, "limits.env"))
         self.assertIn("\nCONSOLE_CAP_ANTHROPIC_USD=40\n", text)
         self.assertIn("\nCONSOLE_CAP_ANTHROPIC_IS_REAL=yes\n", text)
-        self.assertIn("\nANTHROPIC_MONTH_USD=0\n", text)
+        self.assertIn("\nANTHROPIC_MONTH_USD=2\n", text)
         self.assertIn("CONSOLE_CAP_XAI_USD=\n", text)
         self.assertIn("\nCONSOLE_CAP_XAI_IS_REAL=no\n", text)
 

@@ -47,6 +47,13 @@ class ParkedKey(Base):
         r = self.prove()
         self.assertEqual((r.returncode, r.stdout, r.stderr), (0, "DIFFER\n", ""))
 
+    def test_a_month_of_0_or_2_is_differ_and_nothing_else_is(self):
+        self.assertEqual(self.prove().stdout, "DIFFER\n")                      # shipped: 2
+        self.edit("limits.env", "ANTHROPIC_MONTH_USD=2", "ANTHROPIC_MONTH_USD=0")
+        self.assertEqual((self.prove().returncode, self.prove().stdout), (0, "DIFFER\n"))
+        self.edit("limits.env", "ANTHROPIC_MONTH_USD=0", "ANTHROPIC_MONTH_USD=2.0")
+        self.assertEqual((self.prove().returncode, self.prove().stdout), (3, "FAIL\n"))
+
     def test_a_copy_of_amps_key_or_of_the_xai_key_is_match(self):
         self.key("anthropic", ' "%s" ' % AMP)                # quotes and spaces do not hide a copy
         r = self.prove()
@@ -73,7 +80,8 @@ class ParkedKey(Base):
             (lambda: self.edit(".gitignore", "keys/\n", ""), "not ignored by git"),
             (lambda: self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_IS_REAL=yes", "CONSOLE_CAP_ANTHROPIC_IS_REAL=no"), "IS_REAL"),
             (lambda: self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_USD=40", "CONSOLE_CAP_ANTHROPIC_USD=400"), "ANTHROPIC_USD"),
-            (lambda: self.edit("limits.env", "ANTHROPIC_MONTH_USD=0", "ANTHROPIC_MONTH_USD=2"), "ANTHROPIC_MONTH_USD"),
+            (lambda: self.edit("limits.env", "ANTHROPIC_MONTH_USD=2", "ANTHROPIC_MONTH_USD=1"), "ANTHROPIC_MONTH_USD is not 0 or 2"),
+            (lambda: self.edit("limits.env", "ANTHROPIC_MONTH_USD=2", "ANTHROPIC_MONTH_USD=40"), "ANTHROPIC_MONTH_USD is not 0 or 2"),
             (lambda: self.edit("limits.env", "CONSOLE_CAP_XAI_IS_REAL=no", "CONSOLE_CAP_XAI_IS_REAL=yes"), "XAI_IS_REAL"),
             (lambda: self.edit("limits.env", "XAI_MONTH_USD=15", "XAI_MONTH_USD=40"), "XAI_MONTH_USD"),
             (lambda: self.edit("r2.py", "REVIEWER_MODEL", 'KEYFILE = "keys/anthropic"\nREVIEWER_MODEL'), "r2.py mentions"),

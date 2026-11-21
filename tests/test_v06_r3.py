@@ -189,7 +189,7 @@ class WritesNothing(R3Base):
 
 class Money(R3Base):
     def test_live_is_refused_before_a_hold_while_the_month_is_zero(self):
-        self.assertIn("\nANTHROPIC_MONTH_USD=0\n", read(os.path.join(HERE, "limits.env")))
+        self.edit("limits.env", "ANTHROPIC_MONTH_USD=2", "ANTHROPIC_MONTH_USD=0")
         r = self.r3(live=True)
         self.wrote_nothing(r, 2)
         self.assertIn("no builder call is authorized: ANTHROPIC_MONTH_USD is $0.00", r.stdout)
@@ -230,7 +230,7 @@ class Money(R3Base):
 
     def test_shipped_numbers_are_the_ruled_ones(self):
         text = read(os.path.join(HERE, "limits.env"))
-        for line in ("ANTHROPIC_MONTH_USD=0", "R3_TASK_USD=2", "ANTHROPIC_IN_PER_M=0.10", "ANTHROPIC_OUT_PER_M=0.50",
+        for line in ("ANTHROPIC_MONTH_USD=2", "R3_TASK_USD=2", "ANTHROPIC_IN_PER_M=0.10", "ANTHROPIC_OUT_PER_M=0.50",
                      "CONSOLE_CAP_ANTHROPIC_USD=40", "XAI_MONTH_USD=15", "CONSOLE_CAP_XAI_IS_REAL=no"):
             self.assertIn("\n" + line + "\n", text)
         src = read(os.path.join(HERE, "r3.py"))
@@ -240,12 +240,12 @@ class Money(R3Base):
 
 
 class LivePathWithoutANetwork(R3Base):
-    """The month is raised to 2 in the test copy only, and `sudo` is a fake that answers
-    with a fixture body. This proves how the key travels. It opens no socket."""
+    """`sudo` is a fake that answers with a fixture body. This proves how the key
+    travels at the shipped month of 2. It opens no socket."""
 
     def setUp(self):
         super().setUp()
-        self.edit("limits.env", "ANTHROPIC_MONTH_USD=0", "ANTHROPIC_MONTH_USD=2")
+        self.assertIn("\nANTHROPIC_MONTH_USD=2\n", read(os.path.join(self.root, "limits.env")))
         os.makedirs(os.path.join(self.root, "keys"), mode=0o700)
         for name, value in (("anthropic", KEY), ("xai", "xai-TESTKEY-not-real-0000000000")):
             write(os.path.join(self.root, "keys", name), value + "\n")

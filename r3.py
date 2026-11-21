@@ -2,8 +2,12 @@
 """r3.py -- architect-run R3: one caged run. Started by r3.sh.
 
 One builder call to api.anthropic.com, made by r3_child.py as the `architect` user.
-The model writes ONE file of at most 40 lines. The test file is the contract: it is
-hash-pinned in the task, it is never sent to the model, and it is never changed.
+A task has one of two shapes, fixed by its impl line and by nothing else:
+  one file     at most 40 lines, max_tokens 1024; the reply is {"path": ..., "content": ...}
+  three files  120 lines in all, none empty, none over 80, max_tokens 4096; the reply is one
+               object whose keys are exactly the three file names
+The test file is the contract: it is hash-pinned in the task, it is never sent to the
+model, and it is never changed.
 The file the model wrote is run only inside the cage (r3_cage.sh, which uses
 cage/cage.sh unchanged). This program never loads or runs it on the host.
 No tools, no retry, no second call, no reviewer, no promotion, no commit.
@@ -22,6 +26,10 @@ BUILDER_MODEL = "claude-haiku-5-5"  # pinned here. A task file cannot choose its
 MAX_TOKENS = 1024                   # pinned here.
 MAX_LINES = 40                      # one function, one file.
 MAX_BYTES = 8 * 1024
+THREE_MAX_TOKENS = 4096             # pinned here, for the three-file shape only.
+THREE_TOTAL_LINES = 120
+THREE_FILE_LINES = 80
+THREE_HOLD_CEILING = 0.005
 ROOT = os.path.dirname(os.path.realpath(__file__))
 ARGS = sys.argv[1:]
 OK, REFUSED, DENY, FAIL, ENV, HALT = 0, 2, 3, 4, 5, 10
@@ -109,7 +117,7 @@ if not live:
     LEDGER = os.path.join(BUDGET, "ledger.r3.fixture.json")
 
 # ---------------------------------------------------------------- limits and denylist
-KEYS_NEEDED = ("TASK_USD", "MONTH_USD", "MONTH_HALT_PCT", "WALL_CLOCK_S", "R3_TASK_USD", "R3_HOLD_USD", "R3_LIVE_MAX",
+KEYS_NEEDED = ("TASK_USD", "MONTH_USD", "MONTH_HALT_PCT", "WALL_CLOCK_S", "R3_TASK_USD", "R3_HOLD_USD", "R3_HOLD_THREE_USD", "R3_LIVE_MAX",
                "ANTHROPIC_MONTH_USD",
                "ANTHROPIC_IN_PER_M", "ANTHROPIC_OUT_PER_M", "ANTHROPIC_CACHE_WRITE_PER_M",
                "ANTHROPIC_CACHE_READ_PER_M")
@@ -139,8 +147,10 @@ if r3max <= 0 or r3max > 2 or r3max > L["TASK_USD"]:
 hold_usd, live_max = L["R3_HOLD_USD"], L["R3_LIVE_MAX"]
 if hold_usd <= 0 or hold_usd > r3max:
     finish(REFUSED, "REFUSED limits.env: R3_HOLD_USD must be above 0 and no higher than R3_TASK_USD")
-if live_max != int(live_max) or live_max > 2:
-    finish(REFUSED, "REFUSED limits.env: R3_LIVE_MAX must be a whole number no higher than 2")
+if live_max != int(live_max) or live_max > 3:
+    finish(REFUSED, "REFUSED limits.env: R3_LIVE_MAX must be a whole number no higher than 3")
+if L["R3_HOLD_THREE_USD"] <= 0 or L["R3_HOLD_THREE_USD"] > THREE_HOLD_CEILING:
+    finish(REFUSED, "REFUSED limits.env: R3_HOLD_THREE_USD must be above 0 and no higher than %s" % THREE_HOLD_CEILING)
 
 
 def usd(x):
@@ -194,11 +204,20 @@ for forbidden in ("model", "builder", "host", "url", "max_tokens", "tools", "rev
     if forbidden in task:
         finish(REFUSED, "REFUSED a task may not set %s" % forbidden)
 prose = task.get("prose", "")
-if not 20 <= len(prose) <= 2000:
-    finish(REFUSED, "REFUSED task needs a prose line of 20 to 2000 characters")
-impl = task.get("impl", "")
-if not re.fullmatch(r"[a-z_][a-z0-9_]{0,40}\.py", impl):
-    finish(REFUSED, "REFUSED impl must be one plain file name like slug.py")
+if not 20 <= len(prose) <= 4000:
+    finish(REFUSED, "REFUSED task needs a prose line of 20 to 4000 characters")
+impls = task.get("impl", "").split()
+if (len(impls) not in (1, 3) or len(set(impls)) != len(impls)
+        or not all(re.fullmatch(r"[a-z_][a-z0-9_]{0,40}\.py", name) for name in impls)):
+    finish(REFUSED, "REFUSED impl must be one plain file name like slug.py, or exactly three different ones")
+three = len(impls) == 3
+impl = impls[0]
+max_tokens = THREE_MAX_TOKENS if three else MAX_TOKENS
+if three:
+    hold_usd = L["R3_HOLD_THREE_USD"]
+    if live and hold_usd > L["ANTHROPIC_MONTH_USD"]:
+        finish(REFUSED, "REFUSED no builder call is authorized: ANTHROPIC_MONTH_USD is $%.2f and one run "
+                        "needs %s. No hold placed, no call made." % (L["ANTHROPIC_MONTH_USD"], usd(hold_usd)))
 expect = task.get("expect_sha256", "").lower()
 if not re.fullmatch(r"[0-9a-f]{64}", expect):
     finish(REFUSED, "REFUSED no expect_sha256 line for the test file (64 hex). No expect line, no run.")
@@ -206,7 +225,7 @@ if not task.get("test"):
     finish(REFUSED, "REFUSED task has no test line")
 test_file = file_in(task["test"], [INBOX], "the test file")
 test_name = os.path.basename(test_file)
-if not re.fullmatch(r"[a-z_][a-z0-9_]{0,40}\.py", test_name) or test_name == impl:
+if not re.fullmatch(r"[a-z_][a-z0-9_]{0,40}\.py", test_name) or test_name in impls:
     finish(REFUSED, "REFUSED the test file needs a plain module name different from impl")
 with open(test_file, "rb") as fh:  # read-only, once
     test_bytes = fh.read()
@@ -221,15 +240,16 @@ if len(test_bytes) > 64 * 1024:
 if os.path.islink(WORK):
     finish(DENY, "REFUSED work/ is a symlink")
 run_dir = os.path.join(WORK, task["id"] + ("" if live else "-FIXTURE"))
-target = os.path.join(run_dir, impl)
-for candidate in (os.path.normpath(target), os.path.realpath(target)):
-    hit = deny_hit(candidate)
-    if hit:
-        finish(DENY, "REFUSED impl is on the denylist (%s). Nothing written." % hit)
-    if not under(candidate, WORK) or os.path.dirname(candidate) != os.path.realpath(run_dir):
-        finish(DENY, "REFUSED impl is outside this run's directory. Nothing written.")
+targets = {name: os.path.join(run_dir, name) for name in impls}
+for target in targets.values():
+    for candidate in (os.path.normpath(target), os.path.realpath(target)):
+        hit = deny_hit(candidate)
+        if hit:
+            finish(DENY, "REFUSED impl is on the denylist (%s). Nothing written." % hit)
+        if not under(candidate, WORK) or os.path.dirname(candidate) != os.path.realpath(run_dir):
+            finish(DENY, "REFUSED impl is outside this run's directory. Nothing written.")
 if not live and os.path.isdir(run_dir) and not os.path.islink(run_dir):
-    for name in (impl, test_name):          # a dry run may clear only its own two files
+    for name in impls + [test_name]:        # a dry run may clear only its own files
         leftover = os.path.join(run_dir, name)
         if os.path.isfile(leftover) and not os.path.islink(leftover):
             os.remove(leftover)
@@ -240,17 +260,27 @@ if not live and os.path.isdir(run_dir) and not os.path.islink(run_dir):
 if os.path.lexists(run_dir):
     finish(REFUSED, "REFUSED %s already exists. A run never overwrites. Nothing written."
            % os.path.relpath(run_dir, ROOT))
-say("target: %s" % os.path.relpath(target, ROOT))
+say("target: %s/ %s" % (os.path.relpath(run_dir, ROOT), ", ".join(impls)))
 
 # ---------------------------------------------------------------- build the request
+if three:
+    system = ("You write three small Python files for a build pipeline. Reply with exactly one JSON object "
+              "and nothing else. The object has exactly these three keys and no others: %s. Each value is "
+              "the whole content of that file as one string. No array, no wrapper, no other key. Together "
+              "the three files must be at most %d lines, no file may be empty and no file may be over %d "
+              "lines. Use only the Python standard library, define what is asked and nothing else, and do "
+              "not read files, open sockets, start processes or look at the clock. No explanation."
+              % (", ".join('"%s"' % name for name in impls), THREE_TOTAL_LINES, THREE_FILE_LINES))
+else:
+    system = ("You write one small Python file for a build pipeline. Reply with exactly one JSON object "
+              "and nothing else: {\"path\": \"%s\", \"content\": \"<the whole file>\"}. The path must be "
+              "exactly that file name. The file must be at most %d lines, use only the Python standard "
+              "library, define what is asked and nothing else, and must not read files, open sockets or "
+              "start processes. No explanation, no second file." % (impl, MAX_LINES))
 request = {
     "model": BUILDER_MODEL,
-    "max_tokens": MAX_TOKENS,
-    "system": ("You write one small Python file for a build pipeline. Reply with exactly one JSON object "
-               "and nothing else: {\"path\": \"%s\", \"content\": \"<the whole file>\"}. The path must be "
-               "exactly that file name. The file must be at most %d lines, use only the Python standard "
-               "library, define what is asked and nothing else, and must not read files, open sockets or "
-               "start processes. No explanation, no second file." % (impl, MAX_LINES)),
+    "max_tokens": max_tokens,
+    "system": system,
     "messages": [{"role": "user", "content": prose}],
     # claude-haiku-5-5 thinks by default and then answers after a thinking block. This run wants
     # the answer only. No effort field is sent: the default is the one that accepts "disabled".
@@ -324,7 +354,7 @@ if live and spent + hold_usd > month_halt:
 if live and attempts >= live_max:
     finish(HALT, "HALT live R3 calls started this month: %d of %d allowed. No hold placed, no call made."
            % (attempts, int(live_max)))
-worst = ((len(request_bytes) + 1) // 2 * L["ANTHROPIC_IN_PER_M"] + MAX_TOKENS * L["ANTHROPIC_OUT_PER_M"]) / 1e6
+worst = ((len(request_bytes) + 1) // 2 * L["ANTHROPIC_IN_PER_M"] + max_tokens * L["ANTHROPIC_OUT_PER_M"]) / 1e6
 if worst > hold_usd:
     finish(REFUSED, "REFUSED worst-case cost $%.4f is over this run's hold of %s. No hold placed." % (worst, usd(hold_usd)))
 hold = {"id": task["id"], "usd": hold_usd, "provider": "anthropic", "at": NOW.isoformat(timespec="seconds")}
@@ -360,7 +390,7 @@ key = packet = None
 if not res.get("ok") and child_err:
     say("child said: %s" % child_err[:150])     # why it failed, so the log can say; the key is never in it
 say("call: %s %s, model %s, max_tokens %d" % ("live" if live else "fixture",
-    "ok" if res.get("ok") else "failed (%s)" % str(res.get("error"))[:60], BUILDER_MODEL, MAX_TOKENS))
+    "ok" if res.get("ok") else "failed (%s)" % str(res.get("error"))[:60], BUILDER_MODEL, max_tokens))
 
 # ---------------------------------------------------------------- reconcile the ledger
 body = res.get("body") if isinstance(res.get("body"), dict) else {}
@@ -415,7 +445,7 @@ def reject(code, result):
             "# R3 rejected reply: %s" % task["id"], "",
             "- Date: %s" % NOW.isoformat(timespec="seconds"),
             "- Mode: %s" % ("live" if live else "FIXTURE, not a real builder call"),
-            "- Builder: %s, one call, max_tokens %d" % (BUILDER_MODEL, MAX_TOKENS),
+            "- Builder: %s, one call, max_tokens %d" % (BUILDER_MODEL, max_tokens),
             "- Why: %s" % result,
             "- Content block types, in order: %s" % (", ".join(block_types) or "none"),
             "- stop_reason: %s" % str(body.get("stop_reason"))[:40],
@@ -436,41 +466,72 @@ try:
     reply = json.loads(fenced.group(1) if fenced else reply_text)
 except (KeyError, IndexError, TypeError, ValueError, AssertionError, AttributeError):
     reject(FAIL, "FAIL the reply was not one JSON object of text. Nothing written.")
-if not isinstance(reply, dict) or set(reply) != {"path", "content"}:
-    reject(FAIL, "FAIL the reply must be exactly one object with path and content "
-                 "(a second file is refused). Nothing written.")
-path, content = reply["path"], reply["content"]
-if not isinstance(path, str) or not isinstance(content, str) or not path:
-    reject(FAIL, "FAIL path and content must be text. Nothing written.")
-if os.path.isabs(path) or path.startswith("~") or re.match(r"[A-Za-z]:", path):
-    reject(DENY, "REFUSED the reply names an absolute path. Nothing written.")
-if ".." in re.split(r"[/\\]", path):
-    reject(DENY, "REFUSED the reply's path contains '..'. Nothing written.")
-if os.path.basename(path) == test_name:
-    reject(DENY, "REFUSED the reply names the test file. Nothing written.")
-hit = deny_hit(os.path.normpath(os.path.join(run_dir, path)))
-if hit:
-    reject(DENY, "REFUSED the reply's path is on the denylist (%s). Nothing written." % hit)
-if path != impl:
-    reject(DENY, "REFUSED the reply's path is not %s. Nothing written." % impl)
-if "\x00" in content or len(content.encode()) > MAX_BYTES or len(content.splitlines()) > MAX_LINES:
-    reject(FAIL, "FAIL the file is over %d lines or %d bytes. Nothing written." % (MAX_LINES, MAX_BYTES))
-if not content.endswith("\n"):
-    content += "\n"
+def path_refusal(path):
+    """Why a path named in a reply is refused outright, or None."""
+    if not isinstance(path, str) or not path:
+        return FAIL, "FAIL a path in the reply is not text. Nothing written."
+    if os.path.isabs(path) or path.startswith("~") or re.match(r"[A-Za-z]:", path):
+        return DENY, "REFUSED the reply names an absolute path. Nothing written."
+    if ".." in re.split(r"[/\\]", path):
+        return DENY, "REFUSED the reply's path contains '..'. Nothing written."
+    if os.path.basename(path) == test_name:
+        return DENY, "REFUSED the reply names the test file. Nothing written."
+    hit = deny_hit(os.path.normpath(os.path.join(run_dir, path)))
+    if hit:
+        return DENY, "REFUSED the reply's path is on the denylist (%s). Nothing written." % hit
+    return None
 
-# ---------------------------------------------------------------- write the one file, and the contract beside it
+
+if not isinstance(reply, dict):
+    reject(FAIL, "FAIL the reply must be exactly one JSON object. Nothing written.")
+if three:
+    for name in sorted(reply, key=str):
+        if name not in impls:
+            reject(*(path_refusal(name) or (DENY, "REFUSED the reply names a file that is not one of the three "
+                                                  "(%s). Nothing written." % str(name)[:40])))
+    if set(reply) != set(impls):
+        reject(FAIL, "FAIL the reply must have exactly these three keys: %s. Nothing written." % ", ".join(impls))
+    files = {name: reply[name] for name in impls}
+    if not all(isinstance(text, str) for text in files.values()):
+        reject(FAIL, "FAIL each file must be one string holding the whole file. Nothing written.")
+    counts = {name: len(text.splitlines()) for name, text in files.items()}
+    if any(not text.strip() for text in files.values()):
+        reject(FAIL, "FAIL a file is empty. Nothing written.")
+    if (any("\x00" in text for text in files.values()) or max(counts.values()) > THREE_FILE_LINES
+            or sum(counts.values()) > THREE_TOTAL_LINES or sum(len(t.encode()) for t in files.values()) > 2 * MAX_BYTES):
+        reject(FAIL, "FAIL the files are over %d lines in all, or one is over %d (%s). Nothing written."
+               % (THREE_TOTAL_LINES, THREE_FILE_LINES, ", ".join("%s %d" % kv for kv in sorted(counts.items()))))
+else:
+    if set(reply) != {"path", "content"}:
+        reject(FAIL, "FAIL the reply must be exactly one object with path and content "
+                     "(a second file is refused). Nothing written.")
+    path, content = reply["path"], reply["content"]
+    if not isinstance(path, str) or not isinstance(content, str) or not path:
+        reject(FAIL, "FAIL path and content must be text. Nothing written.")
+    if path_refusal(path):
+        reject(*path_refusal(path))
+    if path != impl:
+        reject(DENY, "REFUSED the reply's path is not %s. Nothing written." % impl)
+    if "\x00" in content or len(content.encode()) > MAX_BYTES or len(content.splitlines()) > MAX_LINES:
+        reject(FAIL, "FAIL the file is over %d lines or %d bytes. Nothing written." % (MAX_LINES, MAX_BYTES))
+    files = {impl: content}
+files = {name: text if text.endswith("\n") else text + "\n" for name, text in files.items()}
+
+# ---------------------------------------------------------------- write the files, and the contract beside them
 if sha_of(test_file) != test_sha:
     finish(HALT, "HALT the test file changed during the run. Nothing written.")
 os.makedirs(WORK, exist_ok=True)
 os.mkdir(run_dir, 0o755)
 os.chmod(run_dir, 0o755)                     # the cage user may read this directory, never write it
 test_copy = os.path.join(run_dir, test_name)
-for dest, data in ((test_copy, test_bytes), (target, content.encode())):
+for dest, data in [(test_copy, test_bytes)] + [(targets[name], files[name].encode()) for name in impls]:
     with open(dest, "xb") as fh:
         fh.write(data)
     os.chmod(dest, 0o644)
-impl_sha = sha_of(target)
-say("wrote: %s (%d lines, sha256 %s...)" % (os.path.relpath(target, ROOT), len(content.splitlines()), impl_sha[:16]))
+shas = {name: sha_of(targets[name]) for name in impls}
+for name in impls:
+    say("wrote: %s (%d lines, sha256 %s...)" % (os.path.relpath(targets[name], ROOT),
+                                                 len(files[name].splitlines()), shas[name][:16]))
 
 # ---------------------------------------------------------------- the tests, inside the cage only
 wall = max(10, min(int(L["WALL_CLOCK_S"]), 120))
@@ -482,8 +543,9 @@ except subprocess.TimeoutExpired:
     cage_rc, cage_out = 124, "the cage did not return in time"
 tail = [ln[:160] for ln in cage_out.splitlines()[-25:]]
 say("cage: r3_cage.sh (cage/cage.sh unchanged), exit %d" % cage_rc)
-same = sha_of(test_file) == test_sha and sha_of(test_copy) == test_sha and sha_of(target) == impl_sha
-extra = sorted(set(os.listdir(run_dir)) - {impl, test_name})
+same = (sha_of(test_file) == test_sha and sha_of(test_copy) == test_sha
+        and all(sha_of(targets[name]) == shas[name] for name in impls))
+extra = sorted(set(os.listdir(run_dir)) - set(impls) - {test_name})
 
 verdict = "PASS" if cage_rc == 0 and same and not extra else "FAIL"
 if cage_rc == 90:
@@ -491,17 +553,19 @@ if cage_rc == 90:
 report = ["# R3 caged run: %s" % task["id"], "",
           "- Date: %s" % NOW.isoformat(timespec="seconds"),
           "- Mode: %s" % ("live" if live else "FIXTURE, not a real builder call"),
-          "- Builder: %s, one call, max_tokens %d, no tools" % (BUILDER_MODEL, MAX_TOKENS),
+          "- Builder: %s, one call, max_tokens %d, no tools" % (BUILDER_MODEL, max_tokens),
           "- Cost: $%.4f" % cost,
           "- Test (the contract): `%s` sha256 `%s`, %s" % (
-              os.path.relpath(test_file, ROOT), test_sha, "unchanged" if same else "CHANGED"),
-          "- File written: `%s` sha256 `%s`" % (os.path.relpath(target, ROOT), impl_sha),
-          "- Run by: `r3_cage.sh` with the flags of `cage/cage.sh`, unchanged. Never run on the host.",
-          "- Cage exit code: %d" % cage_rc,
-          "- Result: **%s**" % verdict, "",
-          "## The file", "", "```python", content.rstrip("\n"), "```", "",
-          "## Cage output (last lines)", "", "```"] + tail + ["```", "",
-          "---", "Nothing was promoted, committed or sent anywhere. Only Jeremy decides what happens to this file.", ""]
+              os.path.relpath(test_file, ROOT), test_sha, "unchanged" if same else "CHANGED")]
+report += ["- File written: `%s` sha256 `%s`, %d lines" % (
+    os.path.relpath(targets[name], ROOT), shas[name], len(files[name].splitlines())) for name in impls]
+report += ["- Run by: `r3_cage.sh` with the flags of `cage/cage.sh`, unchanged. Never run on the host.",
+           "- Cage exit code: %d" % cage_rc,
+           "- Result: **%s**" % verdict, ""]
+for name in impls:
+    report += ["## %s" % name, "", "```python", files[name].rstrip("\n"), "```", ""]
+report += ["## Cage output (last lines)", "", "```"] + tail + ["```", "",
+           "---", "Nothing was promoted, committed or sent anywhere. Only Jeremy decides what happens to these files.", ""]
 os.makedirs(OUTBOX, exist_ok=True)
 base = "%s-%s%s" % (NOW.strftime("%Y-%m-%d"), task["id"], "" if live else "-FIXTURE")
 out_path, n = os.path.join(OUTBOX, base + ".md"), 1
@@ -512,7 +576,7 @@ with open(out_path, "w") as fh:
     fh.write("\n".join(report))
 say("report: %s" % os.path.relpath(out_path, ROOT))
 if cage_rc == 90:
-    finish(ENV, "NOT RUN the cage could not be started (%s). The file was written and not run." % (tail[-1] if tail else "?"))
+    finish(ENV, "NOT RUN the cage could not be started (%s). What was written was not run." % (tail[-1] if tail else "?"))
 if not same:
     finish(HALT, "HALT a file changed while the cage ran. See the report.")
 if extra:

@@ -420,7 +420,7 @@ class LivePathWithoutANetwork(R3Base):
         for name, value, needle in (("R3_HOLD_USD", "0.0001", "worst-case cost"),
                                     ("R3_HOLD_USD", "3", "R3_HOLD_USD must be above 0 and no higher"),
                                     ("R3_HOLD_USD", "0", "R3_HOLD_USD must be above 0"),
-                                    ("R3_LIVE_MAX", "3", "no higher than 2"),
+                                    ("R3_LIVE_MAX", "4", "no higher than 3"),
                                     ("R3_LIVE_MAX", "1.5", "whole number")):
             self.tearDown()
             self.setUp()

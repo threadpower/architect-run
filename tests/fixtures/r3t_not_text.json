@@ -1,0 +1,1 @@
+{"id": "msg_fixture", "type": "message", "role": "assistant", "model": "claude-haiku-5-5", "content": [{"type": "text", "text": "{\"add.py\": \"def add(a, b):\\n    return a + b\\n\", \"neg.py\": [\"def neg(a):\", \"    return -a\"], \"twice.py\": \"def twice(a):\\n    return a * 2\\n\"}"}], "stop_reason": "end_turn", "usage": {"input_tokens": 400, "output_tokens": 120}}

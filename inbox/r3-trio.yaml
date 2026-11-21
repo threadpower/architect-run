@@ -1,0 +1,7 @@
+# R3 toy task for the three-file shape. Not a product, and not Hopper.
+id: r3-trio
+kind: r3
+prose: Write three Python modules. add.py defines add(a, b) and returns a + b. neg.py defines neg(a) and returns -a. twice.py defines twice(a) and returns a * 2.
+impl: add.py neg.py twice.py
+test: inbox/r3_trio_test.py
+expect_sha256: 9045418f19729fb912e913a8523a0f8935352dac458fb1aa9597cf232b83e1f8

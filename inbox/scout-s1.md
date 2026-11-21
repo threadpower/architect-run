@@ -4,7 +4,7 @@ Nov 19, 2026 · @Jeremy
 
 ## Status
 
-Scout's doctrine stays frozen at v0.3 (Grok round 3, Sept 16). This version adds only the build layer that Amp, Reverb and Warp have taught us since, and it reopens no frozen ruling. The frozen text is [Scout Spec v0.3](https://claude.ai/artifact/FxUsytmQ22LX5RtLwR94aL); this doc is what gets built from it.
+Scout's doctrine stays frozen at v0.3 (Grok round 3, Sept 16). This version adds only the build layer that Amp, Reverb and Warp have taught us since, and it reopens no frozen ruling. The frozen text is [Scout Spec v0.3](https://claude.ai/artifact/FxUsytmQ22LX5RtLwR94aL); the parts a build is checked against are copied verbatim under "Frozen v0.3 text" below. This doc is what gets built.
 
 | Item | State on Nov 19 |
 | --- | --- |
@@ -30,7 +30,7 @@ Four renames that Grok should confirm are not doctrine changes:
 
 ## Doctrine and refuse lines
 
-Scout observes, scores and proposes; it never acts and never edits another tool's data. The nine lines below are v0.3's, shortened. The tenth is new and is the page footer.
+Scout observes, scores and proposes; it never acts and never edits another tool's data. The nine lines below are v0.3's, shortened.
 
 1. **No thresholds, tags or thesis edits of its own.** A finding becomes an Amp tag, a Watchtower instrument or a thesis layer only when the operator writes it there.
 2. **Every claim carries evidence:** source, metric, baseline, delta, breadth. A finding with no evidence row is refused by the digest and the page.
@@ -41,7 +41,6 @@ Scout observes, scores and proposes; it never acts and never edits another tool'
 7. **Not a scraper.** Phrase banks come only from the allowed-source list. No platform-comment adapter exists in the tree. This is the S1 refuse line, encoded as ledger row F-2026-38-005.
 8. **The local model proposes, the operator writes.** Term kind and motive are suggested with quotes and confirmed by a person.
 9. **Own data confirms, never discovers.** It never proposes a term and never counts toward breadth.
-10. **Footer line (new, wording is an open call):** "Scout reads widely, proposes, and keeps score. A person rules."
 
 Build-layer refusals added in v0.4, each learned the hard way on Amp or Reverb:
 
@@ -68,7 +67,7 @@ A term is proposed, observed, scored into a tier, and only then written up as a 
 4. **Tier.** One gate, no exceptions (table below).
 5. **Rule.** The operator confirms term kind and motive on the Rulings page. Nothing reaches Finding without it.
 6. **Forecast.** From S2, each courier states a probability on dated binary statements. The resolver is stored on the row and re-run verbatim on resolve day.
-7. **Export and digest.** Sunday evening: one export per live lane, one digest capped at 12 findings.
+7. **Export and digest.** Sunday evening: one export per live lane from S2 on (S1 writes none), one digest capped at 12 findings.
 
 | Tier | Rule | Shown |
 | --- | --- | --- |
@@ -107,7 +106,7 @@ Allowed phrase-bank sources in S1:
 
 | Source | Where it lives now | How Scout reads it |
 | --- | --- | --- |
-| Own product reviews | Shopify (review app to confirm) | Read-only token |
+| Own product reviews | Shopify | Not read in S1. It returns when the review app and its read-only scope are named |
 | Own site search terms | Shopify | Read-only token; scope to verify in the probe |
 | Our own post text | Reverb (Mixpost history imported) | Reverb read-only endpoint |
 | Google Trends related queries | SerpApi | Scout's own adapter |
@@ -272,13 +271,13 @@ Four slices, each ending in a proof rather than a feature list; nothing in a lat
 | --- | --- | --- |
 | S0 closeout | No code. The five September rows are voided with the reason written on each, and five new rows are written with resolvers frozen from pulls made that day | The five old rows read void. Five new rows exist with every resolver field filled, and the first of them resolves cleanly by rule |
 | S1a probes | Six hand-run scripts, listed below | Each prints PASS. Probes 1, 2, 5 and 6 block S1; probes 3 and 4 only cut a source |
-| S1 | Container at `/forge/scout` on the shell with QA and prod; the S0 ledger imported; adapters for Amp, Reverb, Shopify, SerpApi and (if its probe passed) Creative Center; proposer; scorer with the single gate; local-model extractor; `phrases` with its constraint; five pages; Sunday digest; `apparel_trends.json` written with no reader yet | Four clean weeks of nightly runs, counted from the first night every S1 adapter is green. Sources page green. At least one discovered term reaches Watch. The operator has cleared the Rulings queue each week |
+| S1 | Container at `/forge/scout` on the shell with QA and prod; the S0 ledger imported; adapters for Amp, Reverb, Shopify, SerpApi and (if its probe passed) Creative Center; proposer; scorer with the single gate; local-model extractor; `phrases` with its constraint; five pages; Sunday digest | The eleven acceptance tests listed below pass in the suite. Nothing else gates S1. |
 | S2 | Claude and Grok couriers; forecasts flowing into the ledger; Grok live X on Watch+ terms; monthly calibration report; Hopper reads the export; phrase candidates and motive tags offered to Amp; the Life lane as v0.3 planned it | First 10 forecasts resolved. Calibration report 1 exists. One phrase bank has been used in live copy. One Scout idea has been voted on in Hopper |
 | S3 | Labs lane, Pinterest, Etsy's official API if commerce breadth is thin, Gemini as quarterly cold reviewer | The operator has adopted at least one proposed tag and one proposed instrument |
 
 The six probes, run in one sitting before any page exists:
 
-1. SerpApi solo pull: the same term, `today 5-y`, pulled twice an hour apart, returns identical values for every closed week. The plan's price and monthly quota are read off the account page.
+1. SerpApi solo pull: one term, `today 5-y`, returns a series for the term that was requested, and the series is recorded. The plan's price and monthly quota are read off the account page.
 2. SerpApi rising-related: one seed returns a list, and the call count matches what the cap assumes.
 3. Creative Center: the hashtag pages for apparel read without a login. A fail drops it from S1 with no replacement.
 4. Shopify: the existing read-only app can return search terms and reviews. A missing scope is named.
@@ -290,17 +289,58 @@ Acceptance tests that ship with S1, each a named test in the suite:
 - A forecast's resolver cannot be edited after creation.
 - A finding cannot be saved at tier Finding with no phrase rows.
 - A phrase with a source outside the five is refused by the database.
-- A probation term never appears in the digest or the export.
+- A probation term never appears in the digest.
 - A discovered term that has not reached Watch in 4 weeks retires.
 - Own data never adds to `breadth_sources` or `breadth_families`.
 - Every Trends pull has exactly one term.
 - A hit cap degrades to free sources, pages once, and the run finishes.
 - QA makes no outbound call to a paid source or a courier.
 - A schema-invalid model response is retried once, then refused.
-- The export is renamed into place and its hash is recorded.
 - The digest holds at most 12 findings.
 
-Proposed order against the calendar, for Jeremy and Grok to rule on: Grok round this week; S0 closeout and probes on any evening, since neither deploys anything; S1 built as soon as the rulings are folded in; S1's first prod night on or after Dec 2, clear of Black Friday through Cyber Monday. Starting S1 early matters because its gate is four weeks of clock time that no amount of building shortens.
+Moved to S2, when the export is first written: the export is renamed into place and its hash is recorded, and a probation term never appears in it.
+
+Proposed order against the calendar, for Jeremy and Grok to rule on: Grok round this week; S0 closeout and probes on any evening, since neither deploys anything; S1 built as soon as the rulings are folded in; S1's first prod night on or after Dec 2, clear of Black Friday through Cyber Monday.
+
+## Frozen v0.3 text, copied verbatim
+
+Copied on Nov 21, 2026 from Scout Spec v0.3 (Grok round 3, Sept 16) without change, so a build is checked against text that is in this file. The tool names are v0.3's own: Forge Ads is now Amp, and Mixpost is now Reverb.
+
+**Doctrine (v0.3)**
+
+- No thresholds of its own. A macro finding becomes a Watchtower instrument only when the operator adds it to the board.
+- No tag writes. An apparel finding becomes a Radar/Forge Ads tag only when the operator resolves it in the Tag Manager.
+- No thesis edits. thesis\_stack.yaml stays operator's pen; Scout may attach a *proposed layer* to a packet, nothing more.
+- Every claim carries evidence (source, metric, baseline, delta, breadth). A finding with no evidence row is not a finding; the digest refuses it.
+- Every forecast is dated, resolvable, and scored. Unscored forecasts expire out of the ledger; they never roll forward silently.
+- Courier outputs are shown, not averaged. Claude and Grok disagree in the packet, and the ledger records who was right.
+- Budget-capped: SerpApi, Grok live search, and Anthropic calls each have a monthly ceiling in config; a hit cap degrades to free sources and PAGEs the operator, it does not stop the run.
+- Nothing personal leaves The Forge. The Life lane uses public data only; household figures stay in the Ledger tool and are never sent to a courier.
+- Not a scraper. Phrase banks come only from allowed sources (see Motive layer). A Finding cannot ship with a phrase bank from anywhere else, and no comment-scraping adapter exists in the tree, silent or otherwise. This is the S1 refuse line.
+
+**Evidence standard: score components (v0.3)**
+
+| Component | Definition | Why |
+| --- | --- | --- |
+| Level | z-score of this week's index vs. the term's own baseline (seasonal 52-week for Trends, real history for own data), per source | Removes seasonality and source size |
+| Acceleration | Week-over-week change in the z-score | Catches the knee of the curve, not the peak |
+| Breadth | `breadth_sources` (independent sources with z ≥ 1.5 in the same 7-day window) and `breadth_families` (search, social, commerce, news, markets, official stats) | The core anti-noise gate |
+| Persistence | Consecutive weeks above z ≥ 1.0 | Separates a spike from a trend |
+
+**Tiers (v0.3)**
+
+- **Finding** — `breadth_sources` ≥ 3 and `breadth_families` ≥ 2, plus either acceleration > 0 or persistence ≥ 3 weeks, plus a phrase bank from allowed sources.
+- **Watch** — `breadth_sources` = 2, or a single source with z ≥ 3, or any term meeting the Finding numbers without a phrase bank. Listed, not forecast.
+- **Noise** — everything else. Stored, never shown.
+
+**Evidence rules (v0.3)**
+
+- Sources are independent only if they measure different populations. A news site republishing a social feed counts once.
+- Own data (Shopify orders, Forge Ads insights, site search, Mixpost engagement) is a **confirm** family, not a discover family: it never proposes a term and never counts toward breadth. With ≥ 12 weeks of real history a confirmed own-data lift multiplies the finding score; under 12 weeks it may confirm direction only, never multiply.
+- Google Trends is a 0–100 relative index, not volume, and it rescales any *pair* of terms together — so no shared anchor term. Each term is pulled **alone** on a fixed `today 5-y` window and z-scored against its own series. Cross-term ranking uses breakout percentage plus own-data confirms, never a shared index.
+- Baselines by family: Trends gets its full 5-year history on first sight, so the seasonal baseline exists from day one — the backfill *is* the first pull. Own data uses real history only.
+- Every finding row keeps its raw numbers and source URLs. The digest shows them; a courier never sees a finding without them.
+- Thresholds are per lane in config.
 
 ## Open operator calls
 
@@ -315,6 +355,8 @@ Nine things only Jeremy can answer. The first decides whether the frozen spec's 
 - [ ] **Budget.** SerpApi at up to $40 a month from S1's first night. Still right?
 - [ ] **Order.** Hopper H1 first, with Scout S1 right behind so its four-week clock starts early. Or the reverse?
 - [ ] **Hand-built or Foundry.** Proposed: built in chat like Amp and Reverb. Foundry is not built, and Scout should not wait on it.
+
+Everything from here down is review history, kept for the record. Where it differs from the sections above, the sections above are the spec.
 
 ## Grok review 1 (Nov 19)
 

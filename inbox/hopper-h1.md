@@ -41,7 +41,7 @@ What changed underneath v0.3, and what v0.4 does about it:
 9. **Same build pattern as the rest of the Forge.**
 10. **Wrong in public, quiet in private; never the reverse.** The Board is the whole picture. Names are kept so an act can be attributed. Names are not a view. (Tick 1 of 3.)
 
-Refuse lines, all carried from v0.3: never writes to Plane; never promotes, publishes or spends on its own; never uses paid or cloud generation; never interrupts a person's GPU job; never blocks a submission with a model; never renders a third-party character, logo or licensed face (the prompt writer strips them and says so); never scrapes social platforms for ideas; never stores more about a public submitter than the idea and a display name; never sends idea text to a cloud model; never reports on people; never auto-deletes an idea; never holds Forge work.
+Refuse lines, all carried from v0.3: never writes to Plane; never promotes, publishes or spends on its own; never uses paid or cloud generation; never interrupts a person's GPU job; never blocks a submission with a model; never renders a third-party character, logo or licensed face (the prompt writer strips them and says so); never scrapes social platforms for ideas; never stores more about a public submitter than the idea and a display name; never sends idea text to a cloud model; never reports on people; never auto-deletes an idea; never holds Forge work. Added in Grok review 1: paid-ad copy variants never go on the Board; they belong in Amp.
 
 Build-layer refusals added in v0.4:
 
@@ -69,18 +69,18 @@ The top row is play and belongs to Hopper. The bottom row is work: Warp reviews 
 
 ## Idea lifecycle
 
-Six states, unchanged from v0.3. People move an idea between all of them except Generated, which the runner sets when the night's batch finishes.
+Six states, unchanged from v0.3. People move an idea into Submitted, Reviewed, Promoted and Parked. Two states are set by rule: Shortlisted, when an idea's vote score clears the bar, and Generated, when the runner finishes the night's batch.
 
 | State | Means | How it gets there | Rules |
 | --- | --- | --- | --- |
 | Submitted | On the Board, open for votes | Any intake door | One vote per person per idea; a second tap removes it. A team submission whose text exactly matches an existing team idea is refused with a link to it |
 | Shortlisted | In the queue for the next night | Score clears the bar | The bar is a number in config, not a judgment |
-| Generated | Concept images exist | The runner | The only machine-set state |
+| Generated | Concept images exist | The runner | Set by the runner, never by a person |
 | Reviewed | At least one person has thumbed the concepts | One thumb | One notes box per idea, overwritten, last editor logged. The notes ride to the next night |
 | Promoted | Someone said make it | Any roster member, one name | Promoter ticks the winning concepts first. Zero concepts is allowed and the confirm says so. Append-only |
 | Parked | Not now | Any roster member | Nothing is deleted. Parked ideas can be revived. The runner ignores them |
 
-Scores are computed, never stored. Vote score is the sum of votes, each decayed with a 14-day half-life. Concept score is net thumbs. Both numbers live in config.
+Scores are computed, never stored. Vote score is the sum of votes, each decayed with a 14-day half-life. Concept score is net thumbs. The half-life and the shortlist bar are config numbers; neither score is stored.
 
 Merging two duplicates is a human act: keep one text, fold votes one per person, set `merged_into` on the loser and park it. The Merge view says, "Your vote on the other idea is folded, not doubled."
 
@@ -96,15 +96,15 @@ Seven ways an idea gets in, all through one endpoint (`POST /api/ideas`, shared-
 | --- | --- | --- | --- |
 | Team page | Anyone on the roster | Submit: one idea, or a pasted list split by line, optional reference image, optional lane (Apparel, Content, Story) | H1 |
 | Seed import | Josh's notes, Steph's list, existing content ideas | A named script with a dry run. Hashes each line; running it twice does no harm | H1 |
-| Warp | "Send to Hopper" on a Warp review card | Warp posts the card's text and its source (meeting, tool feedback) | H1 |
+| Warp | "Send to Hopper" on a Warp review card | Warp posts the card's text with source set to warp, and puts where the card came from (meeting, tool feedback) in source\_ref | H1 |
 | Scout | Findings that clear Scout's single gate | Hopper reads `apparel_trends.json` and creates one idea per candidate, tagged with motive and a link back. Score zero | H3 |
 | Calls and live content | Meet notes, podcast and live recordings | Warp's meeting pass is the one reader: task-shaped items stay in Warp, idea-shaped items come here | H3 |
 | Luma | "Add an idea to the Hopper" by voice or text | Forge Dispatch calls the same endpoint as the signed-in person | H3, when Dispatch exists |
 | Public | Website form, replies to a monthly post | A moderation queue the team clears first | Parked (H4) |
 
-What every door sends: `text`, `lane`, `source`, `submitter` (a roster email or a system name), and optionally `source_ref`, `scout_motive`, an image.
+What every door sends: `text`, `lane`, `source`, `submitter` (a roster email or a system name), and optionally `source_ref`, `scout_motive`, an image. The lane value is lowercase on every door and in the package (apparel, content, story); the page shows the labels capitalised.
 
-What every door gets back: the idea id, or a refusal with the reason. The only automatic refusals are an exact duplicate of a team idea and a submitter not on the roster. Each service has its own key and submits under its own system name; a service key may not submit as a person. Luma is the one exception, and it passes the signed-in person's Access identity, which Hopper checks itself.
+What every door gets back: the idea id, or a refusal with the reason. The automatic refusals are an exact duplicate of a team idea, a submitter not on the roster, and a service key submitting as a person. Each service has its own key and submits under its own system name; a service key may not submit as a person. Luma is the one exception, and it passes the signed-in person's Access identity, which Hopper checks itself.
 
 The public door still starts without a build: a monthly "send us your idea" post, replies pasted into Submit by hand. The form is built only after that post has shown people reply, and only after a lawyer has written the terms.
 
@@ -195,9 +195,9 @@ The promotion package is one folder per promotion:
 Rules on the package:
 
 - `concepts` may be empty. Studio work can start from a sentence.
-- Warp proposes the project from `lane` (Apparel and Content ideas go to the Apparel workspace). A person confirms in Warp's review, like every other card.
+- Warp proposes the project from `lane` (Apparel and Content ideas go to the Apparel workspace; a Story idea carries no workspace proposal). A person confirms in Warp's review, like every other card.
 - Hopper posts the package once. If Warp is down, the package waits on disk and Hopper retries; a promotion is never lost and never sent twice (`promotion_id` is the key).
-- How the card reaches Warp (its HTTP intake or its inbox folder) follows whatever Warp exposes on the day H1 is built. That is a probe, not a design choice.
+- The package reaches Warp by HTTP post to Warp's intake on forge-net. Probe 4 proves that path before H1 is built.
 
 The Scout contract, written identically in the Scout spec: Hopper reads `apparel_trends.json` once a week, creates one idea per candidate with `source = scout`, `source_ref = finding_id`, `scout_motive = motive`, at score zero. A `finding_id` already seen is skipped. An unknown `schema` number is refused. Scout sends at most 12 a week, which with the top-5 nightly cap is the whole anti-flood rule.
 
@@ -222,7 +222,7 @@ From `forge_shell`, unchanged: Access identity check, header with the app switch
 
 Hostnames: ideas.threadpower.com and ideas-qa.threadpower.com, with hopper.threadpower.com as an alias, behind Cloudflare Access. Both are added in the remotely managed tunnel's ingress list with the same setup script Reverb and Warp use.
 
-The page must work on a phone. Ideas arrive in the moment, and the first proof is four people submitting from their own devices.
+The page must work on a phone. Ideas arrive in the moment.
 
 ## Operations carried from Amp and Reverb
 
@@ -235,7 +235,7 @@ Hopper is born with the operating pieces Amp and Reverb each earned through an i
 | `promote` migrates a copy first; `up` refuses to rebuild prod from a newer tree; `rollback` exists | Amp v0.16a and v0.16b | Same |
 | Stale-mount guard: heartbeat file, `doctor`, `remount` | Amp lost five days of work to a stale bind mount in October | Same, from day one. Hopper has two mounts (data, concept files), and `doctor` checks both |
 | Nightly backup with an off-box copy | Amp v0.16a | The SQLite file and uploads. Concept images are not backed up; they can be rerun from prompt and seed |
-| `/health` as a deploy gate | Reverb slice 8 | Blocks on: database writable, heartbeat fresh, schema current. Warns on: last night failed, ComfyUI or Ollama unreachable, disk below the floor, a package waiting on Warp |
+| `/health` as a deploy gate | Reverb slice 8 | Blocks on: database writable, heartbeat fresh, schema current. Warns on, read only from Hopper's own rows: last night failed, the last preflight reported ComfyUI or Ollama unreachable or disk below the floor, a package waiting on Warp. /health never calls ComfyUI or Ollama |
 | Per-attempt record and a retry button instead of redo | Reverb slice 8, replacing Mixpost's recreate-the-post | `runs` and `events` tables. A failed night can be rerun by the operator inside the window |
 | JSON logs to stdout with rotation | Reverb slice 8 | Same |
 | Alerts by email from the shared Forge sender | Shared sender since Nov 9 | The morning message and any failed night. Moves to Cue when Cue is lifted into the shell |
@@ -248,7 +248,7 @@ Hopper is born with the operating pieces Amp and Reverb each earned through an i
 
 How the build itself runs, same as Amp and Reverb:
 
-1. This spec goes to Grok with the prompt at the end. Rulings come back as FINE, SHOULD or MUST per item and are folded in as a dated "Grok review" section.
+1. This spec goes to Grok for review. Rulings come back as FINE, SHOULD or MUST per item and are folded in as a dated "Grok review" section.
 2. Each slice is built with its tests, then an independent adversarial review runs on the diff before anything is packaged.
 3. The zip and as-built notes go back to Grok for a review of the build.
 4. QA first. Tests pass inside the image. Then promote.
@@ -261,9 +261,9 @@ Three slices and a parked fourth, each ending in a proof; nothing later starts u
 | Slice | Builds | Proof it must pass |
 | --- | --- | --- |
 | H0 probes | Four hand-run scripts, listed below | Each prints PASS, or names what must be fixed before H2 |
-| H1 the bank | Container at `/forge/hopper` on the shell with QA and prod; `users`, `ideas`, `votes`, `promotions`, `events`; the intake endpoint; Board, Submit, Promote; the package and its post to Warp; Warp's "send to Hopper"; seed import with dry run | Every roster member has submitted and voted from their own device. A promotion appears as a card in Warp's review queue with a complete package. The seed import run twice adds nothing the second time |
-| H2 the night | `concepts`, `reviews`, `runs`; preflight; prompt writer with the style file; the runner with its three timing rules; two saved workflows; Gallery; Merge; Nights; morning message | Five shortlisted ideas produce twenty concepts by morning, three nights running, with nobody opening ComfyUI. The team has thumbed them. One round of notes has changed the next night's output |
-| H3 the feeds | Scout's export; idea-shaped lines from Warp's meeting pass; Luma intake; reference images fed to Klein; model file hashes on concept rows; upscale, background removal and a 5B teaser for Promoted ideas only; pruning of concept files for ideas parked over 90 days | A Scout finding has entered and been voted on like any other idea. A promoted idea with picked concepts has been accepted in Warp and landed in Plane |
+| H1 the bank | Container at `/forge/hopper` on the shell with QA and prod; `users`, `ideas`, `votes`, `promotions`, `events`; the intake endpoint; Board, Submit, Promote; the package and its post to Warp; Warp's "send to Hopper"; seed import with dry run | A promotion appears as a card in Warp's review queue with a complete package. The seed import run twice adds nothing the second time |
+| H2 the night | `concepts`, `reviews`, `runs`; preflight; prompt writer with the style file; the runner with its three timing rules; two saved workflows; Gallery; Merge; Nights; morning message | Five shortlisted ideas produce twenty concepts by morning, three nights running. The team has thumbed them. One round of notes has changed the next night's output |
+| H3 the feeds | Scout's export; idea-shaped lines from Warp's meeting pass; Luma intake; reference images fed to Klein; model file hashes on concept rows; upscale, background removal and a 5B teaser for Promoted ideas only; pruning of concept files for ideas parked over 90 days | A Scout finding has entered and been voted on like any other idea. A promoted idea with picked concepts has been accepted in Warp. Landing in Plane is Warp's proof, not Hopper's |
 | H4 the public door (parked) | The form, the `inbox` table, moderation as a Board filter, the credit checkbox | Not scheduled. Needs the monthly post to have drawn replies, and the lawyer's terms |
 
 The four probes, run in one sitting before any page exists:
@@ -328,7 +328,7 @@ Grok ruled v0.4 buildable as written: 12 FINE, 4 SHOULD, no MUST. First thing to
 | 13 | Morning message | SHOULD: opt-in email from the shared Forge sender; no Signal group with contractors | Matches the proposal. Still Jeremy's tick |
 | 14 | H1's first prod day before Dec 1 | FINE | Nothing |
 | 15 | Hopper H1, then Scout S1; H2's night after Cyber Monday | FINE | Nothing |
-| 16 | Gates and the one cut | Every roster member submits and votes from their own phone; one promotion lands in Warp complete. Cut: Merge | As above |
+| 16 | Gates and the one cut | Every roster member submits and votes from their own phone; one promotion lands in Warp complete. Cut: Merge | Merge cut as above. The own-device gate was removed on Nov 21: a human act is not a gate |
 
 From Grok's context round, adopted:
 
@@ -346,70 +346,5 @@ Not adopted, and why:
 
 Grok read the folded doc and confirmed it with no new rulings: every adoption matches, the three rejections stand, and frozen doctrine is untouched. The spec is ready to freeze on Jeremy's ticks. Build order is unchanged: H0 probes on the Windows side, then H1.
 
-## Grok review prompt
-
-Paste this with two attachments: this doc exported, and Hopper Spec v0.3. The Scout spec goes in the same sitting so the shared contract is ruled on once.
-
 ```text
-Grok review request: Hopper v0.4, build layer on your round-2 rulings
-
-You ran two rounds on Hopper on Sept 22 and listed what was frozen. Three operator
-ticks were still open (doctrine 10 wording, the 10 PM GPU rule, the credit line) and
-nothing was built except a one-idea demo kit. Since then Warp went live with its own
-review queue in front of Plane and a "send to Hopper" action; forge_shell exists
-(identity, switcher, theme, help, feedback widget into Warp, deploy scripts, JSON logs,
-/health deploy gate, alerts); Amp and Reverb run a QA and prod pair with promote and
-rollback. v0.4 keeps every frozen ruling and adds the build layer.
-
-Your frozen list stands. Rule on each item as FINE, SHOULD or MUST, with one line of
-reason.
-
-A. Doctrine boundary
- 1. Doctrine 3 now says "the roster" (the users table) instead of four names. Doctrine
-    4 now says a promotion lands in Warp's review queue instead of Plane Intake. Is
-    either a change to a frozen ruling?
- 2. The Warp handoff moves from the third phase into H1 because Warp is live. Any risk
-    in promotions reaching Warp before Plane is fully populated?
-
-B. Build shape
- 3. One intake endpoint for the page, Warp, Scout and Luma: Access identity for
-    people, a shared-secret header for services on forge-net. Where is the hole?
- 4. The runner lives inside the Hopper container (WSL2 Docker) and reaches ComfyUI and
-    Ollama on the Windows host by host IP. The alternative is a small Windows-side
-    runner next to ComfyUI. Given WSL2 NAT, ComfyUI started by hand, and Docker
-    Desktop needing a Windows session, which breaks less?
- 5. QA writes prompts and never queues a GPU job. Enough to test H2, or should QA be
-    allowed a one-image smoke job, since image jobs may run at any hour?
- 6. New `runs` and `events` tables. Right, or over-built for a team this size?
- 7. The package is posted to Warp exactly once, keyed on promotion_id, with retry from
-    disk if Warp is down. What breaks?
- 8. Concept images are not backed up, on the grounds that prompt and seed can rerun
-    them. Acceptable before model file hashes arrive in H3?
- 9. /health: blocks a deploy on database, heartbeat and schema; warns on a failed
-    night, ComfyUI or Ollama unreachable, low disk, a package waiting on Warp.
-    Anything in the wrong list?
-10. H1 as one batch: bank, Board, Submit, Promote, Merge, package to Warp, seed
-    import, shell, QA and prod. Right size, or where is the cut?
-
-C. Rules that need numbers
-11. With a handful of voters and a 14-day half-life, what starting shortlist bar
-    makes the first week neither empty nor everything?
-12. Twelve Scout findings a week at score zero against a top-5 nightly cap. Is that
-    the whole flood guard, or does Hopper need a per-source ceiling in H3?
-13. The morning message. v0.3 said a Signal group of four with no contractors, but
-    two of the named four are contractors. Proposed: opt-in email from the shared
-    Forge sender until Cue. Rule on recipient and channel.
-
-D. Sequence
-14. H1 uses no GPU and pages nobody. May its first prod day fall before Dec 1, during
-    Black Friday week, or does everything new wait?
-15. Hopper H1 first with Scout S1 right behind; H2's first night after Cyber Monday
-    and never the same night as Scout's first run. Right order?
-16. Your gates for H1 and H2, and the single thing you would cut.
-
-Be blunt. Steph and Josh stayed away from Amp until their screens were trimmed, so
-flag anything on these five views that will keep them away from Hopper. Flag anywhere
-the build layer quietly turns Hopper into project management.
-
-End with one line: is v0.4 buildable as written, and what is the first thing to build.
 ```

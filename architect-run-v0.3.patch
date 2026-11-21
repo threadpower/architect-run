@@ -1,0 +1,68 @@
+diff --git a/r2.py b/r2.py
+index 789c275..5b56ed1 100644
+--- a/r2.py
++++ b/r2.py
+@@ -174,8 +174,11 @@ request = {
+             "You are the pinned reviewer for architect-run, a small build pipeline. Rule on the spec "
+             "you are given, clause by clause: agree, amend or reject, with a one-paragraph reason and, "
+             "for amend, replacement wording that could go straight into the spec. List what blocks a "
+-            "build and every clause that no test could check. Be blunt. Do not rewrite the spec, do not "
+-            "add features, and return only JSON that matches the schema."},
++            "build and every clause that no test could check. Blocking means only a contradiction, or a "
++            "proof no test can fail, that this review does not already close with an amendment. An amend "
++            "is not blocking. An unset secret is not blocking. Do not list the same clause twice. Be "
++            "blunt. Do not rewrite the spec, do not add features, and return only JSON that matches the "
++            "schema."},
+         {"role": "user", "content":
+             "RUBRIC a later build of this spec will be judged by:\n" + rubric_text +
+             "\n\nSPEC (sha256 " + spec_sha + "):\n" + spec_text},
+diff --git a/setup/6-prove-key.sh b/setup/6-prove-key.sh
+new file mode 100755
+index 0000000..6146a32
+--- /dev/null
++++ b/setup/6-prove-key.sh
+@@ -0,0 +1,17 @@
++#!/bin/bash
++# Step 6. Is keys/xai a different key from the XAI_API_KEY line in /forge/secrets.env?
++# Prints exactly one word and nothing else:
++#   DIFFER  (exit 0)  the Architect has its own key
++#   MATCH   (exit 1)  keys/xai is a copy of the shared key
++# Prints nothing and exits 2 if either one cannot be read. No key and no hash is ever printed.
++set -u
++ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
++norm() { tr -d ' \t\r\n"'"'"; }
++[ -r "$ROOT/keys/xai" ] && [ -r /forge/secrets.env ] || exit 2
++A="$(norm < "$ROOT/keys/xai")"
++B="$(grep -m1 '^XAI_API_KEY=' /forge/secrets.env | cut -d= -f2- | norm)"
++[ -n "$A" ] && [ -n "$B" ] || exit 2
++HA="$(printf '%s' "$A" | sha256sum)"; HB="$(printf '%s' "$B" | sha256sum)"
++A=""; B=""
++if [ "$HA" = "$HB" ]; then echo MATCH; exit 1; fi
++echo DIFFER; exit 0
+diff --git a/tests/test_v01.py b/tests/test_v01.py
+index 652964d..165aa54 100644
+--- a/tests/test_v01.py
++++ b/tests/test_v01.py
+@@ -400,7 +400,7 @@ class Hygiene(Base):
+             "r2.sh", "r2.py", "r2_child.py", "rulings.schema.json",
+             "inbox/r1.yaml", "inbox/r2-example.yaml",
+             "setup/1-check-march-repo.sh", "setup/2-first-commit.sh", "setup/4-place-keys.sh",
+-            "setup/5a-make-user.sh", "setup/5b-prove-user.sh", "setup/clear-hold.sh",
++            "setup/5a-make-user.sh", "setup/5b-prove-user.sh", "setup/6-prove-key.sh", "setup/clear-hold.sh",
+             "tests/test_v01.py", "tests/test_v02.py", "tests/fixtures/ok.json", "tests/fixtures/dollar.json",
+             "tests/fixtures/overspend.json", "tests/fixtures/no_usage.json", "tests/fixtures/bad_content.json",
+             "tests/fixtures/ticks_high.json", "tests/fixtures/ticks_low.json", "tests/fixtures/ticks_only.json"})
+diff --git a/tests/test_v02.py b/tests/test_v02.py
+index 4fa8d89..ecb4394 100644
+--- a/tests/test_v02.py
++++ b/tests/test_v02.py
+@@ -252,6 +252,9 @@ class Isolation(R2Base):
+         self.assertEqual(body["reasoning_effort"], "low")
+         self.assertEqual(body["max_completion_tokens"], 16000)
+         self.assertNotIn("max_tokens", body)
++        for phrase in ("Blocking means only a contradiction", "An amend is not blocking",
++                       "An unset secret is not blocking", "Do not list the same clause twice"):
++            self.assertIn(phrase, body["messages"][0]["content"])
+         for secret in list(v1.CANARY_ENV.values()) + [KEY_CANARY, "Bearer"]:
+             self.assertNotIn(secret, req)
+ 

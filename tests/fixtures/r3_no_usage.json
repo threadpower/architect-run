@@ -1,0 +1,1 @@
+{"id": "msg_fixture", "type": "message", "role": "assistant", "model": "claude-haiku-5-5", "content": [{"type": "text", "text": "{\"path\": \"slug.py\", \"content\": \"import re\\n\\n\\ndef slugify(text):\\n    return re.sub(r\\\"[^a-z0-9]+\\\", \\\"-\\\", text.lower()).strip(\\\"-\\\")\\n\"}"}], "stop_reason": "end_turn"}

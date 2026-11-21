@@ -404,12 +404,14 @@ class Hygiene(Base):
         self.assertEqual(have, {
             "preflight.sh", "run.sh", "limits.env", "denylist.txt", "rubric.json", ".gitignore",
             "r2.sh", "r2.py", "r2_child.py", "rulings.schema.json",
+            "r3.sh", "r3.py", "r3_child.py", "r3_cage.sh",
             "inbox/r1.yaml", "inbox/r2-example.yaml",
             "setup/1-check-march-repo.sh", "setup/2-first-commit.sh", "setup/4-place-keys.sh",
             "setup/5a-make-user.sh", "setup/5b-prove-user.sh", "setup/6-prove-key.sh", "setup/clear-hold.sh",
             "setup/7-prove-anthropic-key.sh", "setup/7a-place-anthropic-key.sh",
             "cage/cage.sh", "cage/prove.sh", "cage/probe.py", "cage/inspect_check.py",
-            "tests/test_v01.py", "tests/test_v02.py", "tests/test_v04_cage.py", "tests/test_v05_key.py",
+            "tests/test_v01.py", "tests/test_v02.py", "tests/test_v04_cage.py", "tests/test_v05_key.py", "tests/test_v06_r3.py",
+            "tests/fixtures/r3_abs.json", "tests/fixtures/r3_cache.json", "tests/fixtures/r3_deny.json", "tests/fixtures/r3_dollars.json", "tests/fixtures/r3_dotdot.json", "tests/fixtures/r3_extra_key.json", "tests/fixtures/r3_fenced.json", "tests/fixtures/r3_long.json", "tests/fixtures/r3_no_usage.json", "tests/fixtures/r3_ok.json", "tests/fixtures/r3_other_name.json", "tests/fixtures/r3_overspend.json", "tests/fixtures/r3_test_path.json", "tests/fixtures/r3_two_files.json", "tests/fixtures/r3_wrong.json",
             "tests/fixtures/ok.json", "tests/fixtures/dollar.json",
             "tests/fixtures/overspend.json", "tests/fixtures/no_usage.json", "tests/fixtures/bad_content.json",
             "tests/fixtures/ticks_high.json", "tests/fixtures/ticks_low.json", "tests/fixtures/ticks_only.json"})
@@ -482,10 +484,20 @@ class Preflight(Base):
         self.ready_for_model()
         r = self.run_sh("preflight.sh", "--model")
         self.assertEqual(r.returncode, 0, r.stdout)
-        self.assertIn("console cap: $40 on the Anthropic console; in-code Anthropic budget is $0 (no builder)", r.stdout)
-        self.edit("limits.env", "ANTHROPIC_MONTH_USD=0", "ANTHROPIC_MONTH_USD=1")
-        self.model_fails("ANTHROPIC_MONTH_USD must be 0")
-        self.edit("limits.env", "ANTHROPIC_MONTH_USD=1", "ANTHROPIC_MONTH_USD=0")
+        self.assertIn("console cap: $40 on the Anthropic console; in-code Anthropic budget is $0", r.stdout)
+        self.assertNotIn("a live R3 call can start", r.stdout)
+        self.edit("limits.env", "ANTHROPIC_MONTH_USD=0", "ANTHROPIC_MONTH_USD=2.01")
+        self.model_fails("at most 2 for the one ruled run")
+        self.edit("limits.env", "ANTHROPIC_MONTH_USD=2.01", "ANTHROPIC_MONTH_USD=2")
+        self.model_fails("needs the parked key")                  # a budget with no key parked
+        kf = os.path.join(self.root, "keys", "anthropic")
+        write(kf, "sk-ant-TESTKEY-not-real-00000000\n")
+        os.chmod(kf, 0o600)
+        r = self.run_sh("preflight.sh", "--model")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertIn("builder: ANTHROPIC_MONTH_USD is $2; a live R3 call can start", r.stdout)
+        os.remove(kf)
+        self.edit("limits.env", "ANTHROPIC_MONTH_USD=2", "ANTHROPIC_MONTH_USD=0")
         self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_IS_REAL=yes", "CONSOLE_CAP_ANTHROPIC_IS_REAL=no")
         self.model_fails("holds a number while CONSOLE_CAP_ANTHROPIC_IS_REAL=no")
         self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_USD=40\n", "CONSOLE_CAP_ANTHROPIC_USD=\n")

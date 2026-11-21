@@ -59,7 +59,7 @@ fi
 # limits: every number present
 LM="$ROOT/limits.env"
 MISSING=""
-for k in TASK_USD TASK_HALT_PCT MONTH_USD MONTH_HALT_PCT ROUNDS DIFF_MAX_LINES DIFF_MAX_FILES NEIGHBOR_MAX_FILES NEIGHBOR_MAX_KB WALL_CLOCK_S R2_TASK_USD ANTHROPIC_MONTH_USD XAI_MONTH_USD XAI_IN_PER_M XAI_CACHED_IN_PER_M XAI_OUT_PER_M R2_MAX_OUTPUT_TOKENS R2_MAX_SPEC_KB; do
+for k in TASK_USD TASK_HALT_PCT MONTH_USD MONTH_HALT_PCT ROUNDS DIFF_MAX_LINES DIFF_MAX_FILES NEIGHBOR_MAX_FILES NEIGHBOR_MAX_KB WALL_CLOCK_S R2_TASK_USD ANTHROPIC_MONTH_USD XAI_MONTH_USD XAI_IN_PER_M XAI_CACHED_IN_PER_M XAI_OUT_PER_M R2_MAX_OUTPUT_TOKENS R2_MAX_SPEC_KB R3_TASK_USD ANTHROPIC_IN_PER_M ANTHROPIC_OUT_PER_M ANTHROPIC_CACHE_WRITE_PER_M ANTHROPIC_CACHE_READ_PER_M; do
   grep -qE "^$k=[0-9]+(\.[0-9]+)?[[:space:]]*$" "$LM" 2>/dev/null || MISSING="$MISSING $k"
 done
 if [ -n "$MISSING" ]; then row "limits" "missing:$MISSING"; fail "limits.env is missing:$MISSING"
@@ -116,14 +116,20 @@ if [ "$MODEL" = 1 ]; then
   esac
   # Anthropic: a parked key at most. Nothing here calls Anthropic, so the in-code budget is 0.
   A_REAL="$(val CONSOLE_CAP_ANTHROPIC_IS_REAL)"; AM="$(val ANTHROPIC_MONTH_USD)"; AF="$ROOT/keys/anthropic"
-  if ! num "$AM" || ! lte "$AM" 0; then fail "ANTHROPIC_MONTH_USD must be 0: no builder call is authorized"; fi
+  # 0 means no builder call is authorized. The one ruled run may raise it to 2 and no further.
+  if ! num "$AM" || ! lte "$AM" 2; then fail "ANTHROPIC_MONTH_USD must be 0, or at most 2 for the one ruled run"
+  elif ! lte "$AM" 0; then
+    [ "$A_REAL" = yes ] && num "$CAP_A" && lte "$AM" "$CAP_A" || fail "ANTHROPIC_MONTH_USD above 0 needs a real console cap at least as high"
+    [ -f "$AF" ] && [ ! -L "$AF" ] || fail "ANTHROPIC_MONTH_USD above 0 needs the parked key in keys/anthropic"
+    echo "  builder: ANTHROPIC_MONTH_USD is \$${AM}; a live R3 call can start"
+  fi
   case "$A_REAL" in
     no)
       [ -z "$CAP_A" ] || fail "the Anthropic console-cap line holds a number while CONSOLE_CAP_ANTHROPIC_IS_REAL=no"
       [ -e "$AF" ] || [ -L "$AF" ] && fail "keys/anthropic exists while CONSOLE_CAP_ANTHROPIC_IS_REAL=no" ;;
     yes)
       if ! num "$CAP_A" || lte "$CAP_A" 0; then fail "CONSOLE_CAP_ANTHROPIC_IS_REAL=yes needs a number above 0 on the Anthropic console-cap line"
-      else echo "  console cap: \$${CAP_A} on the Anthropic console; in-code Anthropic budget is \$0 (no builder)"; fi
+      else echo "  console cap: \$${CAP_A} on the Anthropic console; in-code Anthropic budget is \$${AM}"; fi
       if [ -e "$AF" ] || [ -L "$AF" ]; then
         if [ -f "$AF" ] && [ ! -L "$AF" ] && [ "$(stat -c '%a %u' "$AF")" = "600 $UID_NOW" ]; then row "keys/anthropic" "parked, mode 600, yours (R2 does not use it)"
         else row "keys/anthropic" "wrong mode or owner"; fail "keys/anthropic must be a plain file, mode 600, owned by you"; fi

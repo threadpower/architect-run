@@ -1,0 +1,7 @@
+# R3 toy task: one function, one file. Not a product. The test file is the contract.
+id: r3-toy
+kind: r3
+prose: Write a Python module that defines slugify(text). It takes a str and returns a str. Lowercase the text. Every run of characters that are not a to z or 0 to 9 becomes a single hyphen. The result has no hyphen at the start or the end. Empty input, or input with no usable character, returns the empty string. Characters outside ASCII count as separators.
+impl: slug.py
+test: inbox/r3_toy_test.py
+expect_sha256: 91e31a79b99f254fa92b4f133f9ea70091df16ec1b81f7261fd0e9645972d184

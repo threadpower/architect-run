@@ -83,17 +83,17 @@ class ParkedKey(Base):
             self.setUp()
             break_it()
             r = self.prove()
-            self.assertEqual((r.returncode, r.stdout), (1, "FAIL\n"), needle + r.stderr)
+            self.assertEqual((r.returncode, r.stdout), (3, "FAIL\n"), needle + r.stderr)
             self.assertIn(needle, r.stderr)
             self.clean(r)
 
     def test_fail_when_architect_can_read_the_key_or_it_is_tracked(self):
         r = self.prove(SHIM_READS="0")
-        self.assertEqual((r.returncode, r.stdout), (1, "FAIL\n"))
+        self.assertEqual((r.returncode, r.stdout), (3, "FAIL\n"))
         self.assertIn("architect can read keys/anthropic", r.stderr)
         subprocess.run(["git", "-C", self.root, "add", "-f", "keys/anthropic"], check=True)
         r = self.prove()
-        self.assertEqual((r.returncode, r.stdout), (1, "FAIL\n"))
+        self.assertEqual((r.returncode, r.stdout), (3, "FAIL\n"))
         self.assertIn("tracked by git", r.stderr)
 
     def test_neither_script_touches_the_network_or_reads_secrets_wrongly(self):
@@ -118,6 +118,12 @@ class ParkedKey(Base):
         r = run(AMP + "\n")
         self.assertEqual(r.returncode, 1)
         self.assertEqual(read(kf), NEW + "\n")
+
+    def test_exit_1_means_match_and_nothing_else(self):
+        text = read(os.path.join(HERE, PROVE))
+        self.assertEqual(text.count("; exit 1"), 1)
+        self.assertIn("echo MATCH; exit 1", text)
+        self.assertIn("echo FAIL; exit 3", text)
 
     def test_r2_files_never_mention_the_anthropic_key(self):
         for name in ("r2.py", "r2_child.py", "r2.sh"):

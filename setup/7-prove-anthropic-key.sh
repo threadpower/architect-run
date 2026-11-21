@@ -3,7 +3,8 @@
 # Prints exactly one word on standard output:
 #   DIFFER  (exit 0)  it differs from Amp's key and from keys/xai, and every item below holds
 #   MATCH   (exit 1)  it is a copy of Amp's key or of keys/xai
-#   FAIL    (exit 1)  the keys differ but an item below does not hold (the item is named on stderr)
+#   FAIL    (exit 3)  the keys differ but an item below does not hold (the item is named on stderr)
+# Exit 1 always and only means MATCH, so a caller that reads only the exit code can tell the two apart.
 # Prints nothing and exits 2 if it cannot read the key files, cannot find exactly one
 # Anthropic line in the shared secrets file, or cannot test what user architect can read.
 # No key and no hash is ever printed. No network. Asks for sudo once, to test architect.
@@ -54,6 +55,6 @@ done
 
 if [ "${#BAD[@]}" -gt 0 ]; then
   for b in "${BAD[@]}"; do echo "not proven: $b" >&2; done
-  echo FAIL; exit 1
+  echo FAIL; exit 3
 fi
 echo DIFFER; exit 0

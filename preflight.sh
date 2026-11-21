@@ -94,9 +94,28 @@ if [ "$MODEL" = 1 ]; then
   else
     row "architect" "no such user"; fail "user architect does not exist (run setup/make-user.sh)"
   fi
-  for k in CONSOLE_CAP_ANTHROPIC_USD CONSOLE_CAP_XAI_USD; do
-    grep -qE "^$k=[0-9]+(\.[0-9]+)?[[:space:]]*$" "$LM" 2>/dev/null || fail "$k is empty in limits.env (console cap not recorded)"
-  done
+  # Console caps: a number means the console enforces it. No number may be a pretend one.
+  val() { grep -m1 "^$1=" "$LM" 2>/dev/null | cut -d= -f2- | tr -d '[:space:]'; }
+  num() { [[ "$1" =~ ^[0-9]+(\.[0-9]+)?$ ]]; }
+  lte() { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a + 0 <= b + 0) }'; }
+  IS_REAL="$(val CONSOLE_CAP_XAI_IS_REAL)"; CAP_X="$(val CONSOLE_CAP_XAI_USD)"
+  CAP_A="$(val CONSOLE_CAP_ANTHROPIC_USD)"; XM="$(val XAI_MONTH_USD)"; PCT="$(val MONTH_HALT_PCT)"
+  [ -z "$CAP_A" ] || fail "the Anthropic console-cap line must stay empty (nothing here calls Anthropic)"
+  case "$IS_REAL" in
+    no)
+      [ -z "$CAP_X" ] || fail "the xAI console-cap line holds a number while CONSOLE_CAP_XAI_IS_REAL=no"
+      if num "$XM" && lte "$XM" 15; then
+        echo "  console cap: none; in-code xAI halt is ${PCT}% of \$${XM}"
+      else
+        fail "XAI_MONTH_USD must be a number no higher than 15 while there is no console cap"
+      fi ;;
+    yes)
+      if ! num "$CAP_X"; then fail "CONSOLE_CAP_XAI_IS_REAL=yes needs a number on the xAI console-cap line"
+      elif ! num "$XM" || ! lte "$XM" "$CAP_X"; then fail "XAI_MONTH_USD must not be higher than the xAI console cap"
+      else echo "  console cap: \$${CAP_X} on the xAI console; in-code halt is ${PCT}% of \$${XM}"; fi ;;
+    *) fail "CONSOLE_CAP_XAI_IS_REAL must be yes or no" ;;
+  esac
+  [ -e "$ROOT/keys/anthropic" ] && fail "keys/anthropic must not exist: R2 does not use it. Delete it by hand"
   KF="$ROOT/keys/xai"
   if [ -f "$KF" ] && [ "$(stat -c '%a %u' "$KF")" = "600 $UID_NOW" ]; then row "keys/xai" "present, mode 600, yours"
   else row "keys/xai" "missing or wrong mode"; fail "keys/xai must exist, mode 600, owned by you (run setup/place-keys.sh)"; fi

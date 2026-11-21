@@ -272,8 +272,7 @@ class Isolation(R2Base):
         self.assertFalse(os.path.exists(self.called), read(self.called) if os.path.exists(self.called) else "")
 
     def live_ready(self):
-        self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_USD=", "CONSOLE_CAP_ANTHROPIC_USD=40")
-        self.edit("limits.env", "CONSOLE_CAP_XAI_USD=", "CONSOLE_CAP_XAI_USD=15")
+        # cap lines stay as shipped (empty, IS_REAL=no): the honest path must pass as it is
         os.makedirs(os.path.join(self.root, "keys"), mode=0o700)
         write(os.path.join(self.root, "keys", "xai"), KEY_CANARY + "\n")
         os.chmod(os.path.join(self.root, "keys", "xai"), 0o600)
@@ -383,6 +382,7 @@ class Shipped(unittest.TestCase):
         text = read(os.path.join(HERE, "limits.env"))
         self.assertIn("CONSOLE_CAP_ANTHROPIC_USD=\n", text)
         self.assertIn("CONSOLE_CAP_XAI_USD=\n", text)
+        self.assertIn("\nCONSOLE_CAP_XAI_IS_REAL=no\n", text)
 
     def test_no_key_directory_is_shipped_and_keys_stay_ignored(self):
         self.assertIn("keys/", read(os.path.join(HERE, ".gitignore")).splitlines())

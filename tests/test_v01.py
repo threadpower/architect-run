@@ -213,7 +213,8 @@ class Budget(Base):
         want = {"TASK_USD": "8", "TASK_HALT_PCT": "90", "MONTH_USD": "40", "MONTH_HALT_PCT": "90",
                 "ROUNDS": "2", "DIFF_MAX_LINES": "400", "DIFF_MAX_FILES": "8",
                 "NEIGHBOR_MAX_FILES": "8", "NEIGHBOR_MAX_KB": "80", "WALL_CLOCK_S": "1500",
-                "CONSOLE_CAP_ANTHROPIC_USD": "", "CONSOLE_CAP_XAI_USD": ""}
+                "CONSOLE_CAP_ANTHROPIC_USD": "", "CONSOLE_CAP_XAI_USD": "",
+                "CONSOLE_CAP_XAI_IS_REAL": "no"}
         got = dict(l.strip().split("=", 1) for l in read(os.path.join(HERE, "limits.env")).splitlines()
                    if "=" in l and not l.startswith("#"))
         self.assertEqual({k: got.get(k) for k in want}, want)
@@ -443,8 +444,8 @@ class Preflight(Base):
         self.assertEqual(self.run_sh("preflight.sh").returncode, 1)
 
     def ready_for_model(self, uid="1500", groups="architect"):
-        self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_USD=", "CONSOLE_CAP_ANTHROPIC_USD=40")
-        self.edit("limits.env", "CONSOLE_CAP_XAI_USD=", "CONSOLE_CAP_XAI_USD=15")
+        # The cap lines are left exactly as shipped: empty, with IS_REAL=no. Writing a
+        # number in here would be the pretend cap this check exists to refuse.
         os.makedirs(os.path.join(self.root, "keys"), mode=0o700)
         write(os.path.join(self.root, "keys", "xai"), "xai-TESTKEY-not-real-0000000000\n")
         os.chmod(os.path.join(self.root, "keys", "xai"), 0o600)
@@ -456,6 +457,56 @@ class Preflight(Base):
         r = self.run_sh("preflight.sh", "--model")
         self.assertEqual(r.returncode, 0, r.stdout)
         self.assertNotIn("TESTKEY", r.stdout)
+        self.assertIn("console cap: none; in-code xAI halt is 90% of $15", r.stdout)
+
+    def model_fails(self, needle):
+        r = self.run_sh("preflight.sh", "--model")
+        self.assertEqual(r.returncode, 1, r.stdout)
+        self.assertIn(needle, r.stdout)
+
+    def test_a_number_on_a_cap_line_with_no_real_cap_fails(self):
+        self.ready_for_model()
+        self.edit("limits.env", "CONSOLE_CAP_XAI_USD=\n", "CONSOLE_CAP_XAI_USD=15\n")
+        self.model_fails("holds a number while CONSOLE_CAP_XAI_IS_REAL=no")
+
+    def test_xai_month_above_15_with_no_real_cap_fails(self):
+        self.ready_for_model()
+        self.edit("limits.env", "XAI_MONTH_USD=15", "XAI_MONTH_USD=16")
+        self.model_fails("no higher than 15")
+
+    def test_anthropic_cap_line_must_stay_empty(self):
+        self.ready_for_model()
+        self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_USD=\n", "CONSOLE_CAP_ANTHROPIC_USD=40\n")
+        self.model_fails("Anthropic console-cap line must stay empty")
+
+    def test_is_real_must_be_yes_or_no(self):
+        self.ready_for_model()
+        self.edit("limits.env", "CONSOLE_CAP_XAI_IS_REAL=no", "CONSOLE_CAP_XAI_IS_REAL=maybe")
+        self.model_fails("must be yes or no")
+        self.edit("limits.env", "CONSOLE_CAP_XAI_IS_REAL=maybe\n", "")
+        self.model_fails("must be yes or no")
+
+    def test_a_real_cap_passes_only_when_the_in_code_limit_fits_under_it(self):
+        self.ready_for_model()
+        self.edit("limits.env", "CONSOLE_CAP_XAI_IS_REAL=no", "CONSOLE_CAP_XAI_IS_REAL=yes")
+        self.model_fails("needs a number")                       # yes, but the line is empty
+        self.edit("limits.env", "CONSOLE_CAP_XAI_USD=\n", "CONSOLE_CAP_XAI_USD=15\n")
+        self.assertEqual(self.run_sh("preflight.sh", "--model").returncode, 0)
+        self.edit("limits.env", "CONSOLE_CAP_XAI_USD=15\n", "CONSOLE_CAP_XAI_USD=9.5\n")
+        self.model_fails("must not be higher than the xAI console cap")   # 15 > 9.5, compared as numbers
+
+    def test_an_anthropic_key_file_blocks_the_model_path(self):
+        self.ready_for_model()
+        write(os.path.join(self.root, "keys", "anthropic"), "sk-ant-TESTKEY-not-real-00000000\n")
+        os.chmod(os.path.join(self.root, "keys", "anthropic"), 0o600)
+        r = self.run_sh("preflight.sh", "--model")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("keys/anthropic must not exist", r.stdout)
+        self.assertNotIn("TESTKEY", r.stdout)
+
+    def test_no_model_path_ignores_all_of_this(self):
+        self.edit("limits.env", "CONSOLE_CAP_XAI_IS_REAL=no", "CONSOLE_CAP_XAI_IS_REAL=maybe")
+        self.assertEqual(self.run_sh("preflight.sh").returncode, 0)
 
     def test_model_path_needs_the_architect_user(self):
         self.ready_for_model()
@@ -474,10 +525,11 @@ class Preflight(Base):
         self.assertEqual(self.run_sh("preflight.sh").returncode, 0)
         self.assertEqual(self.run_sh("preflight.sh", "--model").returncode, 1)
 
-    def test_model_flag_fails_closed_on_empty_console_caps(self):
+    def test_blank_cap_lines_alone_never_fail_the_model_path(self):
+        self.ready_for_model()
         r = self.run_sh("preflight.sh", "--model")
-        self.assertEqual(r.returncode, 1)
-        self.assertIn("CONSOLE_CAP_ANTHROPIC_USD", r.stdout)
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertNotIn("CONSOLE_CAP", r.stdout)
 
     def test_model_flag_refuses_uid_1000_and_docker_group(self):
         self.ready_for_model(uid="1000", groups="jb sudo docker")

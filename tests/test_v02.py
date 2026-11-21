@@ -252,6 +252,9 @@ class Isolation(R2Base):
         self.assertEqual(body["reasoning_effort"], "low")
         self.assertEqual(body["max_completion_tokens"], 16000)
         self.assertNotIn("max_tokens", body)
+        for phrase in ("Blocking means only a contradiction", "An amend is not blocking",
+                       "An unset secret is not blocking", "Do not list the same clause twice"):
+            self.assertIn(phrase, body["messages"][0]["content"])
         for secret in list(v1.CANARY_ENV.values()) + [KEY_CANARY, "Bearer"]:
             self.assertNotIn(secret, req)
 

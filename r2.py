@@ -174,8 +174,11 @@ request = {
             "You are the pinned reviewer for architect-run, a small build pipeline. Rule on the spec "
             "you are given, clause by clause: agree, amend or reject, with a one-paragraph reason and, "
             "for amend, replacement wording that could go straight into the spec. List what blocks a "
-            "build and every clause that no test could check. Be blunt. Do not rewrite the spec, do not "
-            "add features, and return only JSON that matches the schema."},
+            "build and every clause that no test could check. Blocking means only a contradiction, or a "
+            "proof no test can fail, that this review does not already close with an amendment. An amend "
+            "is not blocking. An unset secret is not blocking. Do not list the same clause twice. Be "
+            "blunt. Do not rewrite the spec, do not add features, and return only JSON that matches the "
+            "schema."},
         {"role": "user", "content":
             "RUBRIC a later build of this spec will be judged by:\n" + rubric_text +
             "\n\nSPEC (sha256 " + spec_sha + "):\n" + spec_text},

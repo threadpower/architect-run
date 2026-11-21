@@ -386,7 +386,11 @@ class Hygiene(Base):
         ignored = {l.strip() for l in read(gi).splitlines()}
         for p in ("keys/", "budget/", "work/", "outbox/", "log/", ".env"):
             self.assertIn(p, ignored)
-        self.assertFalse(os.path.exists(os.path.join(HERE, "keys")), "no keys directory is shipped")
+        keys = os.path.join(HERE, "keys")       # absent in a fresh copy; present once keys are placed
+        if os.path.isdir(keys):
+            self.assertEqual(stat.S_IMODE(os.stat(keys).st_mode), 0o700, "keys/ must be mode 700")
+            for name in os.listdir(keys):
+                self.assertEqual(stat.S_IMODE(os.stat(os.path.join(keys, name)).st_mode), 0o600, name)
 
     def test_only_the_agreed_files_exist(self):
         have = set()
@@ -400,7 +404,7 @@ class Hygiene(Base):
             "r2.sh", "r2.py", "r2_child.py", "rulings.schema.json",
             "inbox/r1.yaml", "inbox/r2-example.yaml",
             "setup/1-check-march-repo.sh", "setup/2-first-commit.sh", "setup/4-place-keys.sh",
-            "setup/5a-make-user.sh", "setup/5b-prove-user.sh", "setup/clear-hold.sh",
+            "setup/5a-make-user.sh", "setup/5b-prove-user.sh", "setup/6-prove-key.sh", "setup/clear-hold.sh",
             "tests/test_v01.py", "tests/test_v02.py", "tests/fixtures/ok.json", "tests/fixtures/dollar.json",
             "tests/fixtures/overspend.json", "tests/fixtures/no_usage.json", "tests/fixtures/bad_content.json",
             "tests/fixtures/ticks_high.json", "tests/fixtures/ticks_low.json", "tests/fixtures/ticks_only.json"})

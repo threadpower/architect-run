@@ -290,7 +290,7 @@ class Money(R3Base):
 
     def test_shipped_numbers_are_the_ruled_ones(self):
         text = read(os.path.join(HERE, "limits.env"))
-        for line in ("ANTHROPIC_MONTH_USD=2", "R3_TASK_USD=2", "R3_HOLD_USD=2", "R3_LIVE_MAX=1", "ANTHROPIC_IN_PER_M=0.10", "ANTHROPIC_OUT_PER_M=0.50",
+        for line in ("ANTHROPIC_MONTH_USD=2", "R3_TASK_USD=2", "R3_HOLD_USD=0.001", "R3_LIVE_MAX=2", "ANTHROPIC_IN_PER_M=0.10", "ANTHROPIC_OUT_PER_M=0.50",
                      "CONSOLE_CAP_ANTHROPIC_USD=40", "XAI_MONTH_USD=15", "CONSOLE_CAP_XAI_IS_REAL=no"):
             self.assertIn("\n" + line + "\n", text)
         src = read(os.path.join(HERE, "r3.py"))

@@ -406,7 +406,9 @@ class Hygiene(Base):
             "inbox/r1.yaml", "inbox/r2-example.yaml",
             "setup/1-check-march-repo.sh", "setup/2-first-commit.sh", "setup/4-place-keys.sh",
             "setup/5a-make-user.sh", "setup/5b-prove-user.sh", "setup/6-prove-key.sh", "setup/clear-hold.sh",
-            "tests/test_v01.py", "tests/test_v02.py", "tests/fixtures/ok.json", "tests/fixtures/dollar.json",
+            "cage/cage.sh", "cage/prove.sh", "cage/probe.py", "cage/inspect_check.py",
+            "tests/test_v01.py", "tests/test_v02.py", "tests/test_v04_cage.py",
+            "tests/fixtures/ok.json", "tests/fixtures/dollar.json",
             "tests/fixtures/overspend.json", "tests/fixtures/no_usage.json", "tests/fixtures/bad_content.json",
             "tests/fixtures/ticks_high.json", "tests/fixtures/ticks_low.json", "tests/fixtures/ticks_only.json"})
 

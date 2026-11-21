@@ -264,7 +264,7 @@ Four slices, each ending in a proof rather than a feature list; nothing in a lat
 | S0 closeout | No application code. Each September row with no recorded outcome is voided, with the reason written on it. A row that has an outcome keeps it. New forecast rows come only from a file Jeremy places | Each September row reads void or carries its recorded outcome. Any new row has every resolver field filled. Resolving the new rows is not a gate |
 | S1a probes | Six hand-run scripts, listed below | Each prints PASS. Probes 1, 2, 5 and 6 block S1; probes 3 and 4 only cut a source |
 | S1 | Container at `/forge/scout` on the shell with QA and prod; the S0 ledger imported; adapters for Amp, Reverb, Shopify, SerpApi and (if its probe passed) Creative Center; proposer; scorer with the single gate; local-model extractor; `phrases` with its constraint; five pages; Sunday digest | The eleven acceptance tests listed below pass in the suite. Nothing else gates S1. |
-| S2 | Claude and Grok couriers; forecasts flowing into the ledger; Grok live X on Watch+ terms; monthly calibration report; Hopper reads the export; phrase candidates and motive tags offered to Amp; the Life lane as v0.3 planned it | First 10 forecasts resolved. Calibration report 1 exists |
+| S2 | Claude and Grok couriers; forecasts flowing into the ledger; Grok live X on Watch+ terms; monthly calibration report; Hopper reads the export; phrase candidates and motive tags offered to Amp; the Life lane as v0.3 planned it | Not set. S2 has no proof until there is an S2 spec |
 | S3 | Labs lane, Pinterest, Etsy's official API if commerce breadth is thin, Gemini as quarterly cold reviewer | Not set. A human act is not a gate; this proof is written when S3 is specced |
 
 The six probes, run in one sitting before any page exists:
@@ -338,15 +338,15 @@ Copied on Nov 21, 2026 from Scout Spec v0.3 (Grok round 3, Sept 16) without chan
 
 Nine things only Jeremy can answer. The first decides whether the frozen spec's own condition ("no v0.4 unless S0 refuses a row") was ever tested.
 
-- [ ] **S0 rows.** Did row 001 (`bigfoot`) get resolved on Sept 20, and are `scout-s0-forecasts.yaml` and the two evidence CSVs on the Forge? All five rows are past their dates. Grok's ruling is to void all five and write five new ones, so this is now only a check that nothing was resolved that I have no record of.
-- [ ] **Name.** "Scout" was provisional in September. Keep it?
-- [ ] **Footer line.** "Scout reads widely, proposes, and keeps score. A person rules." Yours to reword.
-- [ ] **Readers.** Who besides you sees Scout during S1's four weeks?
-- [ ] **Read endpoints.** If probe 5 shows Amp or Reverb needs a new read-only endpoint, is that allowed inside Amp's narrowed freeze (no schema change, no change to packet numbers)?
-- [ ] **Motive on Amp copy rows.** One new column in Amp. Proposed for Amp's first release after Dec 1.
-- [ ] **Budget.** SerpApi at up to $40 a month from S1's first night. Still right?
-- [ ] **Order.** Hopper H1 first, with Scout S1 right behind so its four-week clock starts early. Or the reverse?
-- [ ] **Hand-built or Foundry.** Proposed: built in chat like Amp and Reverb. Foundry is not built, and Scout should not wait on it.
+- [ ] **S0 rows.** Did row 001 (`bigfoot`) get resolved on Sept 20, and are `scout-s0-forecasts.yaml` and the two evidence CSVs on the Forge? All five rows are past their dates. Grok's ruling is to void all five and write five new ones, so this is now only a check that nothing was resolved that I have no record of. Answered by Jeremy on Nov 21: this was never done.
+- [ ] **Name.** "Scout" was provisional in September. Keep it? Jeremy, Nov 21: yes, the name is sticking so far.
+- [ ] **Footer line.** "Scout reads widely, proposes, and keeps score. A person rules." Yours to reword. Jeremy, Nov 21: fine as written.
+- [ ] **Readers.** Who besides you sees Scout during S1's four weeks? Jeremy, Nov 21: possibly Josh, Steph and Brittany later. At first nobody else has access; Jeremy shows it on his own screen.
+- [ ] **Read endpoints.** If probe 5 shows Amp or Reverb needs a new read-only endpoint, is that allowed inside Amp's narrowed freeze (no schema change, no change to packet numbers)? Jeremy, Nov 21: yes, new read-only endpoints are fine.
+- [ ] **Motive on Amp copy rows.** One new column in Amp. Proposed for Amp's first release after Dec 1. Jeremy, Nov 21: fine.
+- [ ] **Budget.** SerpApi at up to $40 a month from S1's first night. Still right? Jeremy, Nov 21: yes, up to $40 a month is fine.
+- [ ] **Order.** Hopper H1 first, with Scout S1 right behind so its four-week clock starts early. Or the reverse? Jeremy, Nov 21: the order is fine. Hopper H1 first, Scout S1 right behind.
+- [ ] **Hand-built or Foundry.** Jeremy, Nov 21: the Architect (the rebuilt Foundry) comes first and builds Scout and Hopper. Its builder is not unlocked yet; Grok's three gates decide when.
 
 Everything from here down is review history, kept for the record. Where it differs from the sections above, the sections above are the spec.
 

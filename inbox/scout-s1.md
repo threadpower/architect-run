@@ -30,14 +30,14 @@ Four renames that Grok should confirm are not doctrine changes:
 
 ## Doctrine and refuse lines
 
-Scout observes, scores and proposes; it never acts and never edits another tool's data. The nine lines below are v0.3's, shortened.
+Scout observes, scores and proposes; it never acts and never edits another tool's data. The nine lines below are a build reminder. The doctrine is the frozen v0.3 text further down, and where the two differ the frozen text wins.
 
 1. **No thresholds, tags or thesis edits of its own.** A finding becomes an Amp tag, a Watchtower instrument or a thesis layer only when the operator writes it there.
 2. **Every claim carries evidence:** source, metric, baseline, delta, breadth. A finding with no evidence row is refused by the digest and the page.
-3. **Every forecast is dated, binary, resolvable and scored.** Its resolver is frozen at creation. Unscored forecasts expire; they never roll forward.
+3. **Every forecast is dated, resolvable** **and scored.** Its resolver is frozen at creation. Unscored forecasts expire; they never roll forward.
 4. **Courier outputs are shown, not averaged.** Claude and Grok disagree in the open and the ledger records who was right.
 5. **Budget-capped.** Each paid source has a monthly ceiling in config. A hit cap degrades to free sources and pages the operator; the run continues.
-6. **Nothing personal leaves the Forge.** Couriers never see household figures or customer data.
+6. **Nothing personal leaves the Forge.** Couriers never see household figures or customer data. The Life lane uses public data only.
 7. **Not a scraper.** Phrase banks come only from the allowed-source list. No platform-comment adapter exists in the tree. This is the S1 refuse line, encoded as ledger row F-2026-38-005.
 8. **The local model proposes, the operator writes.** Term kind and motive are suggested with quotes and confirmed by a person.
 9. **Own data confirms, never discovers.** It never proposes a term and never counts toward breadth.
@@ -53,27 +53,19 @@ Build-layer refusals added in v0.4, each learned the hard way on Amp or Reverb:
 
 Scout is the discovery layer: it answers "what is emerging that we have not named yet?" and hands the answer to tools that already have a person deciding.
 
-&#91;embedded content: Scout's neighbours: four sources in, three readers out\]
-
-Every arrow on the right ends at a person. Hopper's team votes, the operator adds a tag in Amp, the operator rules on the page. Bugs and ideas about Scout itself go to Warp through the shell's feedback widget; findings never do. Watchtower, Oracle and Radar join with the Life lane and are left off this picture.
+Every hand-off from Scout ends at a person. Hopper's team votes, the operator adds a tag in Amp, the operator rules on the page. Bugs and ideas about Scout itself go to Warp through the shell's feedback widget; findings never do. Watchtower, Oracle and Radar join with the Life lane.
 
 ## Pipeline
 
 A term is proposed, observed, scored into a tier, and only then written up as a finding with forecasts attached. Every number in this section is frozen v0.3.
 
-1. **Propose.** Proposers run in a fixed order of trust: Amp vocab seeds, own site and Shopify search terms, Google Trends rising-related on each seed (SerpApi), TikTok Creative Center hashtags, then local-model phrase extraction over text already pulled. A proposed term enters as `origin=discovered, status=probation` and retires if it has not reached Watch in 4 weeks. Probation terms never appear in the digest.
+1. **Propose.** Proposers run in a fixed order of trust: Amp vocab seeds, Google Trends rising-related on each seed (SerpApi), TikTok Creative Center hashtags, then local-model phrase extraction over text already pulled. Own site search, Shopify search and Shopify orders are own data: they confirm a term and never create one. A proposed term enters as `origin=discovered, status=probation` and retires if it has not reached Watch in 4 weeks. Probation terms never appear in the digest.
 2. **Observe.** Adapters pull nightly. Each Trends term is pulled alone on a fixed `today 5-y` window; there is no shared anchor term and no pytrends fallback.
 3. **Score.** Four components per term per week: level (z against the term's own baseline), acceleration (week-over-week change in z), breadth (`breadth_sources` and `breadth_families`), persistence (consecutive weeks at z of 1.0 or more).
-4. **Tier.** One gate, no exceptions (table below).
+4. **Tier.** One gate, no exceptions (the frozen v0.3 tiers, further down).
 5. **Rule.** The operator confirms term kind and motive on the Rulings page. Nothing reaches Finding without it.
 6. **Forecast.** From S2, each courier states a probability on dated binary statements. The resolver is stored on the row and re-run verbatim on resolve day.
 7. **Export and digest.** Sunday evening: one export per live lane from S2 on (S1 writes none), one digest capped at 12 findings.
-
-| Tier | Rule | Shown |
-| --- | --- | --- |
-| Finding | `breadth_sources` of 3 or more and `breadth_families` of 2 or more, plus acceleration above 0 or persistence of 3 weeks or more, plus a phrase bank from allowed sources | Digest, page, export |
-| Watch | `breadth_sources` of 2, or one source at z of 3 or more, or Finding numbers without a phrase bank | One line each; never forecast |
-| Noise | Everything else | Stored, never shown |
 
 Fan-out caps: 40 related pulls a week, rising to 60 after two consecutive weeks with a discovered term at Watch; seed shortlist of 20 a week. Own data with 12 or more weeks of history may multiply a finding's score; under 12 weeks it confirms direction only.
 
@@ -151,7 +143,7 @@ One SQLite file per environment. The eight tables are v0.3's; four are added for
 | `observations` | One reading of one term from one source | term\_id, source, ts, metric, value, raw\_url | v0.3 |
 | `scores` | One term's week | term\_id, week, z\_by\_source, accel, breadth\_sources, breadth\_families, persistence, tier | v0.3 |
 | `findings` | One finding or watch | id, term\_id, lane, week, tier, motive, motive\_by, evidence\_json, proposed\_tags, blog | v0.3 |
-| `phrases` | One verbatim phrase in a bank | finding\_id, text, source (one of the five allowed), url | New. v0.3 kept this inside evidence\_json; a table lets the refuse line be a database constraint |
+| `phrases` | One verbatim phrase in a bank | finding\_id, text, source (one of the allowed S1 sources), url | New. v0.3 kept this inside evidence\_json; a table lets the refuse line be a database constraint |
 | `forecasts` | One ledger row | id, lane, statement, resolves\_on, resolver\_json, p\_claude, p\_grok, outcome, resolved\_at, scoring | v0.3. The S0 YAML imports here unchanged |
 | `packets` | One weekly courier round-trip | week, hash, courier\_responses, cost | v0.3 |
 | `source_health` | One source's state | source, last\_ok, last\_error, calls\_this\_month, cap | v0.3 |
@@ -160,7 +152,7 @@ One SQLite file per environment. The eight tables are v0.3's; four are added for
 | `spend` | One paid call | source, ts, units, est\_cost | New. The Sources page reads it against the caps |
 | `users` | One allowed person | email (from Access), display\_name, role, active | New. Same shape as Amp, Reverb and Warp |
 
-The refuse line as a constraint: `phrases.source` is a closed enum of the five allowed sources, and a finding cannot be saved at tier Finding with zero phrase rows. Row F-2026-38-005 then resolves by query, not by audit.
+The refuse line as a constraint: `phrases.source` is a closed enum of the allowed sources read in S1 (four; product reviews stay out until the app is named), and a finding cannot be saved at tier Finding with zero phrase rows. Row F-2026-38-005 is one of the September rows and is handled in S0 with the others.
 
 Migrations are additive and numbered, with a `schema_version` row. `promote` runs every migration on a copy of prod's file before it touches prod.
 
@@ -192,9 +184,9 @@ The Hopper contract, written identically in the Hopper spec:
       "finding_id": "FND-2026-50-003",
       "term": "example term",
       "idea_text": "One plain line a person could vote on",
-      "motive": "belonging",
+      "motive": "Belonging",
       "phrases": [
-        {"text": "verbatim phrase", "source": "reverb_text", "url": "https://..."}
+        {"text": "verbatim phrase", "source": "Our own post text", "url": "https://..."}
       ],
       "tags": ["cryptids"],
       "proposed_tags": ["new-tag"],
@@ -222,7 +214,7 @@ Scout gets five pages on the shared shell in S1 (the sixth, the digest archive, 
 | Home | Cards: findings this week, watches, forecasts due, sources failing, spend against caps | Everyone; this is the team's whole view with Findings |
 | Findings | Each finding with motive first, then theme, phrase bank, evidence rows and source links | Everyone |
 | Rulings | The operator's queue: confirm a term's kind, confirm a motive, resolve an operator-resolved forecast, acknowledge a proposed tag | Operator |
-| Ledger | Every forecast, its frozen resolver, both probabilities, outcome, and the calibration table | Operator; readable by all |
+| Ledger | Every forecast, its frozen resolver, both probabilities, outcome, and the calibration table | Operator |
 | Sources | Health per source, calls this month, cap, last error | Operator |
 | Digests | Archive of every Sunday digest and export, with hashes. Cut from S1 | Operator |
 
@@ -269,26 +261,26 @@ Four slices, each ending in a proof rather than a feature list; nothing in a lat
 
 | Slice | Builds | Proof it must pass |
 | --- | --- | --- |
-| S0 closeout | No code. The five September rows are voided with the reason written on each, and five new rows are written with resolvers frozen from pulls made that day | The five old rows read void. Five new rows exist with every resolver field filled, and the first of them resolves cleanly by rule |
+| S0 closeout | No application code. Each September row with no recorded outcome is voided, with the reason written on it. A row that has an outcome keeps it. New forecast rows come only from a file Jeremy places | Each September row reads void or carries its recorded outcome. Any new row has every resolver field filled. Resolving the new rows is not a gate |
 | S1a probes | Six hand-run scripts, listed below | Each prints PASS. Probes 1, 2, 5 and 6 block S1; probes 3 and 4 only cut a source |
 | S1 | Container at `/forge/scout` on the shell with QA and prod; the S0 ledger imported; adapters for Amp, Reverb, Shopify, SerpApi and (if its probe passed) Creative Center; proposer; scorer with the single gate; local-model extractor; `phrases` with its constraint; five pages; Sunday digest | The eleven acceptance tests listed below pass in the suite. Nothing else gates S1. |
-| S2 | Claude and Grok couriers; forecasts flowing into the ledger; Grok live X on Watch+ terms; monthly calibration report; Hopper reads the export; phrase candidates and motive tags offered to Amp; the Life lane as v0.3 planned it | First 10 forecasts resolved. Calibration report 1 exists. One phrase bank has been used in live copy. One Scout idea has been voted on in Hopper |
-| S3 | Labs lane, Pinterest, Etsy's official API if commerce breadth is thin, Gemini as quarterly cold reviewer | The operator has adopted at least one proposed tag and one proposed instrument |
+| S2 | Claude and Grok couriers; forecasts flowing into the ledger; Grok live X on Watch+ terms; monthly calibration report; Hopper reads the export; phrase candidates and motive tags offered to Amp; the Life lane as v0.3 planned it | First 10 forecasts resolved. Calibration report 1 exists |
+| S3 | Labs lane, Pinterest, Etsy's official API if commerce breadth is thin, Gemini as quarterly cold reviewer | Not set. A human act is not a gate; this proof is written when S3 is specced |
 
 The six probes, run in one sitting before any page exists:
 
 1. SerpApi solo pull: one term, `today 5-y`, returns a series for the term that was requested, and the series is recorded. The plan's price and monthly quota are read off the account page.
 2. SerpApi rising-related: one seed returns a list, and the call count matches what the cap assumes.
 3. Creative Center: the hashtag pages for apparel read without a login. A fail drops it from S1 with no replacement.
-4. Shopify: the existing read-only app can return search terms and reviews. A missing scope is named.
-5. Amp and Reverb: each returns vocab, copy rows with stats, and post text over forge-net. If either needs a new read-only endpoint, that is a small release in that tool, listed in Open calls.
+4. Shopify: the existing read-only app can return search terms. Reviews are out of S1. A missing scope is named.
+5. Amp returns vocab and copy rows with stats, and Reverb returns post text, each over forge-net. If either needs a new read-only endpoint, that is a small release in that tool, listed in Open calls.
 6. Local model: from inside a container, Qwen at the Windows host IP returns schema-valid phrase extraction on 40 real texts.
 
 Acceptance tests that ship with S1, each a named test in the suite:
 
 - A forecast's resolver cannot be edited after creation.
 - A finding cannot be saved at tier Finding with no phrase rows.
-- A phrase with a source outside the five is refused by the database.
+- A phrase with a source outside the allowed S1 sources is refused by the database.
 - A probation term never appears in the digest.
 - A discovered term that has not reached Watch in 4 weeks retires.
 - Own data never adds to `breadth_sources` or `breadth_families`.

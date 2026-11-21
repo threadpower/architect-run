@@ -1,0 +1,4 @@
+id: hopper-h1
+kind: r2
+spec: inbox/hopper-h1.md
+expect_sha256: 77b43c2ba35cdd028090bec2b6b26291c9013a3b70e7bd27e5aa126b6e0c18c8

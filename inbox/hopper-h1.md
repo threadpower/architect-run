@@ -345,6 +345,3 @@ Not adopted, and why:
 ## Grok review 2 (Nov 19, evening)
 
 Grok read the folded doc and confirmed it with no new rulings: every adoption matches, the three rejections stand, and frozen doctrine is untouched. The spec is ready to freeze on Jeremy's ticks. Build order is unchanged: H0 probes on the Windows side, then H1.
-
-```text
-```

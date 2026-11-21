@@ -262,6 +262,16 @@ if live:
             say("preflight" + ln.strip()[4:])
         finish(ENV, "REFUSED preflight --model did not pass. No call made.")
     say("preflight: --model passed")
+    # The call runs as architect. If architect cannot read the child, it would never start,
+    # so that is checked here, before any hold is placed.
+    try:
+        can = subprocess.run(["sudo", "runuser", "-u", "architect", "--", "test", "-r", CHILD],
+                             capture_output=True, text=True, timeout=120).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        can = False
+    if not can:
+        finish(ENV, "REFUSED user architect cannot read r3_child.py (it needs mode 644). No hold placed, no call made.")
+    say("child: architect can read r3_child.py")
 
 # ---------------------------------------------------------------- budget: check, then hold
 month = NOW.strftime("%Y-%m")
@@ -308,9 +318,12 @@ if live:
 else:
     cmd = clean + ["--fixture", file_in(fixture, [FIXTURES, INBOX], "the fixture")]
     packet = {"request": request}
+child_err = ""
 try:
     proc = subprocess.run(cmd, input=json.dumps(packet), capture_output=True, text=True,
                           timeout=min(int(L["WALL_CLOCK_S"]), 300))
+    child_err = (proc.stderr or "").strip().splitlines()[-1:] or [""]
+    child_err = child_err[0].replace(key, "[key]") if key else child_err[0]
     res = json.loads(proc.stdout)
     if not isinstance(res, dict):
         raise ValueError
@@ -319,6 +332,8 @@ except subprocess.TimeoutExpired:
 except (ValueError, OSError):
     res = {"ok": False, "error": "the child returned nothing usable"}
 key = packet = None
+if not res.get("ok") and child_err:
+    say("child said: %s" % child_err[:150])     # why it failed, so the log can say; the key is never in it
 say("call: %s %s, model %s, max_tokens %d" % ("live" if live else "fixture",
     "ok" if res.get("ok") else "failed (%s)" % str(res.get("error"))[:60], BUILDER_MODEL, MAX_TOKENS))
 

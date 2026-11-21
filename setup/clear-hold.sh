@@ -1,6 +1,6 @@
 #!/bin/bash
 # Clear a spending hold left open by a call that returned no usage.
-# Check the xAI console first, then say whether the call was charged.
+# Check that provider's console first (xAI or Anthropic), then say whether the call was charged.
 set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd -P)"
 L="$ROOT/budget/ledger.json"
@@ -24,7 +24,8 @@ m = led["months"].setdefault(month, {"spent_usd": 0.0})
 for h in led.get("holds", []):
     if mode == "count":
         m["spent_usd"] = round(m.get("spent_usd", 0.0) + h.get("usd", 0), 4)
-        m["xai_usd"] = round(m.get("xai_usd", 0.0) + h.get("usd", 0), 4)
+        field = {"xai": "xai_usd", "anthropic": "anthropic_usd"}.get(h.get("provider"), "xai_usd")
+        m[field] = round(m.get(field, 0.0) + h.get("usd", 0), 4)
 led["holds"] = []
 tmp = path + ".tmp"
 json.dump(led, open(tmp, "w"), indent=2, sort_keys=True)

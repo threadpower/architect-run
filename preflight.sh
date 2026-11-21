@@ -141,6 +141,12 @@ if [ "$MODEL" = 1 ]; then
   KF="$ROOT/keys/xai"
   if [ -f "$KF" ] && [ "$(stat -c '%a %u' "$KF")" = "600 $UID_NOW" ]; then row "keys/xai" "present, mode 600, yours"
   else row "keys/xai" "missing or wrong mode"; fail "keys/xai must exist, mode 600, owned by you (run setup/place-keys.sh)"; fi
+  # The reviewer and builder calls run as architect, who must be able to read the child scripts.
+  for c in r2_child.py r3_child.py; do
+    [ -e "$ROOT/$c" ] || continue
+    if [ -n "$(find "$ROOT/$c" -perm -004 2>/dev/null)" ]; then row "$c" "readable by architect"
+    else row "$c" "NOT readable by architect"; fail "$c must be mode 644 so user architect can read it (chmod 644 $c)"; fi
+  done
   row "model path" "checked"
 else
   row "model path" "off (no model call on this path)"

@@ -111,7 +111,9 @@ class GoodRun(R3Base):
         src = read(os.path.join(HERE, "r3.py"))
         for word in ("importlib", "__import__", "exec(", "eval(", "compile(", "runpy", "os.system", "shell=True", "popen"):
             self.assertNotIn(word, src.lower(), word)
-        self.assertEqual(src.count("subprocess.run("), 3, "preflight, the one child call, the cage; nothing else")
+        self.assertEqual(src.count("subprocess.run("), 4,
+                         "preflight, can-architect-read-the-child, the one child call, the cage; nothing else")
+        self.assertIn('["sudo", "runuser", "-u", "architect", "--", "test", "-r", CHILD]', src)
         self.assertIn('subprocess.run(["bash", CAGE, run_dir, test_name[:-3], str(wall)]', src)
         self.assertNotIn("https://", src)
         self.assertNotIn("xai", src.lower())
@@ -256,7 +258,11 @@ class LivePathWithoutANetwork(R3Base):
         self.argv = os.path.join(self.tmp, "sudo.argv")
         self.stdin = os.path.join(self.tmp, "sudo.stdin")
         body = read(os.path.join(HERE, "tests", "fixtures", "r3_ok.json"))
-        self.shim("sudo", 'echo "$@" > "%s"\ncat > "%s"\ncat <<\'J\'\n{"ok": true, "status": 200, "error": null, "body": %s}\nJ'
+        # `sudo ... test -r FILE` answers for architect; anything else is the one call, recorded and answered.
+        self.shim("sudo", 'for a; do last="$a"; done\n'
+                          'if [ "$5" = test ]; then exit ${SHIM_READABLE:-0}; fi\n'
+                          'echo "$@" > "%s"\ncat > "%s"\n[ -n "${SHIM_CRASH:-}" ] && { echo "python3: can\'t open file: Permission denied" >&2; exit 2; }\n'
+                          'cat <<\'J\'\n{"ok": true, "status": 200, "error": null, "body": %s}\nJ'
                   % (self.argv, self.stdin, body))
 
     def test_key_goes_on_stdin_only_and_appears_nowhere_else(self):
@@ -281,6 +287,26 @@ class LivePathWithoutANetwork(R3Base):
         self.assertNotIn("BUILDERKEY", seen)
         self.assertTrue(self.exists(os.path.join("work", "r3-toy", "slug.py")))
         self.assertEqual(json.loads(read(os.path.join(self.root, REAL)))["holds"], [])
+
+    def test_an_unreadable_child_is_refused_before_any_hold(self):
+        r = self.r3(live=True, SHIM_READABLE="1")
+        self.assertEqual(r.returncode, 5, r.stdout)
+        self.assertIn("user architect cannot read r3_child.py", r.stdout)
+        self.assertIn("No hold placed, no call made", r.stdout)
+        self.assertFalse(self.exists("budget"), "a hold was placed")
+        self.assertFalse(os.path.exists(self.argv), "the call was started")
+        os.chmod(os.path.join(self.root, "r3_child.py"), 0o600)          # and preflight says so by itself
+        r = self.r3(live=True)
+        self.assertEqual(r.returncode, 5, r.stdout)
+        self.assertIn("r3_child.py must be mode 644", r.stdout)
+        self.assertFalse(self.exists("budget"))
+
+    def test_a_child_that_dies_leaves_its_reason_in_the_log_and_the_hold_open(self):
+        r = self.r3(live=True, SHIM_CRASH="1")
+        self.assertEqual(r.returncode, 10, r.stdout)
+        self.assertIn("child said: python3: can't open file: Permission denied", r.stdout)
+        self.assertNotIn(KEY, r.stdout + read(os.path.join(self.root, "log", "run.log")))
+        self.assertEqual(len(json.loads(read(os.path.join(self.root, REAL)))["holds"]), 1)
 
     def test_a_second_live_run_halts_because_one_hold_fills_the_month(self):
         self.assertEqual(self.r3(live=True).returncode, 0)

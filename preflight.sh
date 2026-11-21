@@ -59,7 +59,7 @@ fi
 # limits: every number present
 LM="$ROOT/limits.env"
 MISSING=""
-for k in TASK_USD TASK_HALT_PCT MONTH_USD MONTH_HALT_PCT ROUNDS DIFF_MAX_LINES DIFF_MAX_FILES NEIGHBOR_MAX_FILES NEIGHBOR_MAX_KB WALL_CLOCK_S R2_TASK_USD XAI_MONTH_USD XAI_IN_PER_M XAI_CACHED_IN_PER_M XAI_OUT_PER_M R2_MAX_OUTPUT_TOKENS R2_MAX_SPEC_KB; do
+for k in TASK_USD TASK_HALT_PCT MONTH_USD MONTH_HALT_PCT ROUNDS DIFF_MAX_LINES DIFF_MAX_FILES NEIGHBOR_MAX_FILES NEIGHBOR_MAX_KB WALL_CLOCK_S R2_TASK_USD ANTHROPIC_MONTH_USD XAI_MONTH_USD XAI_IN_PER_M XAI_CACHED_IN_PER_M XAI_OUT_PER_M R2_MAX_OUTPUT_TOKENS R2_MAX_SPEC_KB; do
   grep -qE "^$k=[0-9]+(\.[0-9]+)?[[:space:]]*$" "$LM" 2>/dev/null || MISSING="$MISSING $k"
 done
 if [ -n "$MISSING" ]; then row "limits" "missing:$MISSING"; fail "limits.env is missing:$MISSING"
@@ -100,7 +100,6 @@ if [ "$MODEL" = 1 ]; then
   lte() { awk -v a="$1" -v b="$2" 'BEGIN { exit !(a + 0 <= b + 0) }'; }
   IS_REAL="$(val CONSOLE_CAP_XAI_IS_REAL)"; CAP_X="$(val CONSOLE_CAP_XAI_USD)"
   CAP_A="$(val CONSOLE_CAP_ANTHROPIC_USD)"; XM="$(val XAI_MONTH_USD)"; PCT="$(val MONTH_HALT_PCT)"
-  [ -z "$CAP_A" ] || fail "the Anthropic console-cap line must stay empty (nothing here calls Anthropic)"
   case "$IS_REAL" in
     no)
       [ -z "$CAP_X" ] || fail "the xAI console-cap line holds a number while CONSOLE_CAP_XAI_IS_REAL=no"
@@ -115,7 +114,24 @@ if [ "$MODEL" = 1 ]; then
       else echo "  console cap: \$${CAP_X} on the xAI console; in-code halt is ${PCT}% of \$${XM}"; fi ;;
     *) fail "CONSOLE_CAP_XAI_IS_REAL must be yes or no" ;;
   esac
-  [ -e "$ROOT/keys/anthropic" ] && fail "keys/anthropic must not exist: R2 does not use it. Delete it by hand"
+  # Anthropic: a parked key at most. Nothing here calls Anthropic, so the in-code budget is 0.
+  A_REAL="$(val CONSOLE_CAP_ANTHROPIC_IS_REAL)"; AM="$(val ANTHROPIC_MONTH_USD)"; AF="$ROOT/keys/anthropic"
+  if ! num "$AM" || ! lte "$AM" 0; then fail "ANTHROPIC_MONTH_USD must be 0: no builder call is authorized"; fi
+  case "$A_REAL" in
+    no)
+      [ -z "$CAP_A" ] || fail "the Anthropic console-cap line holds a number while CONSOLE_CAP_ANTHROPIC_IS_REAL=no"
+      [ -e "$AF" ] || [ -L "$AF" ] && fail "keys/anthropic exists while CONSOLE_CAP_ANTHROPIC_IS_REAL=no" ;;
+    yes)
+      if ! num "$CAP_A" || lte "$CAP_A" 0; then fail "CONSOLE_CAP_ANTHROPIC_IS_REAL=yes needs a number above 0 on the Anthropic console-cap line"
+      else echo "  console cap: \$${CAP_A} on the Anthropic console; in-code Anthropic budget is \$0 (no builder)"; fi
+      if [ -e "$AF" ] || [ -L "$AF" ]; then
+        if [ -f "$AF" ] && [ ! -L "$AF" ] && [ "$(stat -c '%a %u' "$AF")" = "600 $UID_NOW" ]; then row "keys/anthropic" "parked, mode 600, yours (R2 does not use it)"
+        else row "keys/anthropic" "wrong mode or owner"; fail "keys/anthropic must be a plain file, mode 600, owned by you"; fi
+      else
+        row "keys/anthropic" "not placed"
+      fi ;;
+    *) fail "CONSOLE_CAP_ANTHROPIC_IS_REAL must be yes or no" ;;
+  esac
   KF="$ROOT/keys/xai"
   if [ -f "$KF" ] && [ "$(stat -c '%a %u' "$KF")" = "600 $UID_NOW" ]; then row "keys/xai" "present, mode 600, yours"
   else row "keys/xai" "missing or wrong mode"; fail "keys/xai must exist, mode 600, owned by you (run setup/place-keys.sh)"; fi

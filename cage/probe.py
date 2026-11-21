@@ -72,7 +72,8 @@ check("no-new-privileges is set", nnp == ["1"], ",".join(nnp))
 
 print("environment:")
 extra = sorted(set(os.environ) - ENV_ALLOWED)
-check("environment holds no key (%d names, all of them plain)" % len(os.environ), not extra, "not allowed: " + ", ".join(extra[:12]))
+check("environment holds no key (names: %s)" % ", ".join(sorted(set(os.environ) & ENV_ALLOWED)), not extra,
+      ("not allowed: " + ", ".join(extra[:12])) if extra else "")
 
 print("network:")
 try:

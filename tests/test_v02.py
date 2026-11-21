@@ -378,9 +378,11 @@ class Child(R2Base):
 
 
 class Shipped(unittest.TestCase):
-    def test_committed_console_caps_are_empty_until_jeremy_fills_them(self):
+    def test_committed_console_caps_are_the_ruled_ones(self):
         text = read(os.path.join(HERE, "limits.env"))
-        self.assertIn("CONSOLE_CAP_ANTHROPIC_USD=\n", text)
+        self.assertIn("\nCONSOLE_CAP_ANTHROPIC_USD=40\n", text)
+        self.assertIn("\nCONSOLE_CAP_ANTHROPIC_IS_REAL=yes\n", text)
+        self.assertIn("\nANTHROPIC_MONTH_USD=0\n", text)
         self.assertIn("CONSOLE_CAP_XAI_USD=\n", text)
         self.assertIn("\nCONSOLE_CAP_XAI_IS_REAL=no\n", text)
 

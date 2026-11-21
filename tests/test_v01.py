@@ -213,7 +213,8 @@ class Budget(Base):
         want = {"TASK_USD": "8", "TASK_HALT_PCT": "90", "MONTH_USD": "40", "MONTH_HALT_PCT": "90",
                 "ROUNDS": "2", "DIFF_MAX_LINES": "400", "DIFF_MAX_FILES": "8",
                 "NEIGHBOR_MAX_FILES": "8", "NEIGHBOR_MAX_KB": "80", "WALL_CLOCK_S": "1500",
-                "CONSOLE_CAP_ANTHROPIC_USD": "", "CONSOLE_CAP_XAI_USD": "",
+                "CONSOLE_CAP_ANTHROPIC_USD": "40", "CONSOLE_CAP_ANTHROPIC_IS_REAL": "yes",
+                "ANTHROPIC_MONTH_USD": "0", "CONSOLE_CAP_XAI_USD": "",
                 "CONSOLE_CAP_XAI_IS_REAL": "no"}
         got = dict(l.strip().split("=", 1) for l in read(os.path.join(HERE, "limits.env")).splitlines()
                    if "=" in l and not l.startswith("#"))
@@ -406,8 +407,9 @@ class Hygiene(Base):
             "inbox/r1.yaml", "inbox/r2-example.yaml",
             "setup/1-check-march-repo.sh", "setup/2-first-commit.sh", "setup/4-place-keys.sh",
             "setup/5a-make-user.sh", "setup/5b-prove-user.sh", "setup/6-prove-key.sh", "setup/clear-hold.sh",
+            "setup/7-prove-anthropic-key.sh", "setup/7a-place-anthropic-key.sh",
             "cage/cage.sh", "cage/prove.sh", "cage/probe.py", "cage/inspect_check.py",
-            "tests/test_v01.py", "tests/test_v02.py", "tests/test_v04_cage.py",
+            "tests/test_v01.py", "tests/test_v02.py", "tests/test_v04_cage.py", "tests/test_v05_key.py",
             "tests/fixtures/ok.json", "tests/fixtures/dollar.json",
             "tests/fixtures/overspend.json", "tests/fixtures/no_usage.json", "tests/fixtures/bad_content.json",
             "tests/fixtures/ticks_high.json", "tests/fixtures/ticks_low.json", "tests/fixtures/ticks_only.json"})
@@ -476,10 +478,22 @@ class Preflight(Base):
         self.edit("limits.env", "XAI_MONTH_USD=15", "XAI_MONTH_USD=16")
         self.model_fails("no higher than 15")
 
-    def test_anthropic_cap_line_must_stay_empty(self):
+    def test_anthropic_cap_needs_a_real_flag_and_a_zero_budget(self):
         self.ready_for_model()
-        self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_USD=\n", "CONSOLE_CAP_ANTHROPIC_USD=40\n")
-        self.model_fails("Anthropic console-cap line must stay empty")
+        r = self.run_sh("preflight.sh", "--model")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertIn("console cap: $40 on the Anthropic console; in-code Anthropic budget is $0 (no builder)", r.stdout)
+        self.edit("limits.env", "ANTHROPIC_MONTH_USD=0", "ANTHROPIC_MONTH_USD=1")
+        self.model_fails("ANTHROPIC_MONTH_USD must be 0")
+        self.edit("limits.env", "ANTHROPIC_MONTH_USD=1", "ANTHROPIC_MONTH_USD=0")
+        self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_IS_REAL=yes", "CONSOLE_CAP_ANTHROPIC_IS_REAL=no")
+        self.model_fails("holds a number while CONSOLE_CAP_ANTHROPIC_IS_REAL=no")
+        self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_USD=40\n", "CONSOLE_CAP_ANTHROPIC_USD=\n")
+        self.assertEqual(self.run_sh("preflight.sh", "--model").returncode, 0)     # no cap claimed, no key: fine
+        self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_IS_REAL=no", "CONSOLE_CAP_ANTHROPIC_IS_REAL=yes")
+        self.model_fails("needs a number above 0")
+        self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_IS_REAL=yes", "CONSOLE_CAP_ANTHROPIC_IS_REAL=maybe")
+        self.model_fails("CONSOLE_CAP_ANTHROPIC_IS_REAL must be yes or no")
 
     def test_is_real_must_be_yes_or_no(self):
         self.ready_for_model()
@@ -497,14 +511,28 @@ class Preflight(Base):
         self.edit("limits.env", "CONSOLE_CAP_XAI_USD=15\n", "CONSOLE_CAP_XAI_USD=9.5\n")
         self.model_fails("must not be higher than the xAI console cap")   # 15 > 9.5, compared as numbers
 
-    def test_an_anthropic_key_file_blocks_the_model_path(self):
+    def test_a_parked_anthropic_key_is_allowed_only_in_the_ruled_state(self):
         self.ready_for_model()
-        write(os.path.join(self.root, "keys", "anthropic"), "sk-ant-TESTKEY-not-real-00000000\n")
-        os.chmod(os.path.join(self.root, "keys", "anthropic"), 0o600)
+        kf = os.path.join(self.root, "keys", "anthropic")
+        write(kf, "sk-ant-TESTKEY-not-real-00000000\n")
+        os.chmod(kf, 0o600)
+        r = self.run_sh("preflight.sh", "--model")
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertIn("parked, mode 600, yours (R2 does not use it)", r.stdout)
+        self.assertNotIn("TESTKEY", r.stdout)
+        os.chmod(kf, 0o640)
+        self.model_fails("keys/anthropic must be a plain file, mode 600, owned by you")
+        os.chmod(kf, 0o600)
+        self.edit("limits.env", "CONSOLE_CAP_ANTHROPIC_IS_REAL=yes", "CONSOLE_CAP_ANTHROPIC_IS_REAL=no")
         r = self.run_sh("preflight.sh", "--model")
         self.assertEqual(r.returncode, 1)
-        self.assertIn("keys/anthropic must not exist", r.stdout)
+        self.assertIn("keys/anthropic exists while CONSOLE_CAP_ANTHROPIC_IS_REAL=no", r.stdout)
         self.assertNotIn("TESTKEY", r.stdout)
+
+    def test_a_symlinked_anthropic_key_is_refused(self):
+        self.ready_for_model()
+        os.symlink(os.path.join(self.root, "keys", "xai"), os.path.join(self.root, "keys", "anthropic"))
+        self.model_fails("keys/anthropic must be a plain file")
 
     def test_no_model_path_ignores_all_of_this(self):
         self.edit("limits.env", "CONSOLE_CAP_XAI_IS_REAL=no", "CONSOLE_CAP_XAI_IS_REAL=maybe")

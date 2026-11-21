@@ -8,6 +8,11 @@ import unittest
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+
+def read(path):
+    with open(path) as fh:
+        return fh.read()
+
 DOCKER = r'''#!/bin/bash
 src() { sed -n 's/.*source=\([^,]*\),target.*/\1/p' "$SHIM_LOG"; }
 case "$1" in
@@ -78,7 +83,7 @@ class CageProof(unittest.TestCase):
         self.assertFalse(os.path.exists(m.group(1)))
 
     def test_cage_flags_are_the_ones_grok_named(self):
-        flags = open(os.path.join(HERE, "cage", "cage.sh")).read()
+        flags = read(os.path.join(HERE, "cage", "cage.sh"))
         for word in ("--rm", "--network none", "--cap-drop ALL", "no-new-privileges", "--user 65534:65534",
                      "type=bind,source=$work,target=/work"):
             self.assertIn(word, flags)
@@ -86,7 +91,7 @@ class CageProof(unittest.TestCase):
                      "--env-file", "secrets.env", "docker pull"):
             self.assertNotIn(word, flags)
         self.prove()
-        ran = open(os.path.join(self.tmp, "log.run")).read()
+        ran = read(os.path.join(self.tmp, "log.run"))
         self.assertIn("--network none", ran)
         self.assertIn("-i PATH=/usr/local/bin:/usr/bin:/bin HOME=/work python3 /work/probe.py run2", ran)
 
@@ -94,7 +99,7 @@ class CageProof(unittest.TestCase):
         for name in os.listdir(os.path.join(HERE, "cage")):
             if not name.endswith((".sh", ".py")):
                 continue
-            text = open(os.path.join(HERE, "cage", name)).read()
+            text = read(os.path.join(HERE, "cage", name))
             for word in ("curl", "wget", "docker pull", "ANTHROPIC_API_KEY", "XAI_API_KEY", "urllib", "requests", "https://"):
                 self.assertNotIn(word, text, "%s in %s" % (word, name))
             if name != "probe.py":      # the probe names the secret paths only to prove it cannot read them

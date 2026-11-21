@@ -82,6 +82,8 @@ Six states, unchanged from v0.3. People move an idea into Submitted, Reviewed, P
 
 Scores are computed, never stored. Vote score is the sum of votes, each decayed with a 14-day half-life. Concept score is net thumbs. The half-life and the shortlist bar are config numbers; neither score is stored.
 
+Three rules for the bar and the night's list, set by Jeremy on Nov 21. An idea clears the bar when its score is at or above it. Once an idea is Shortlisted it stays Shortlisted, even if its score later drops below the bar, until a person moves it. When two shortlisted ideas have the same score, the older one goes first, then the one with the lower id.
+
 Merging two duplicates is a human act: keep one text, fold votes one per person, set `merged_into` on the loser and park it. The Merge view says, "Your vote on the other idea is folded, not doubled."
 
 The Board shows Submitted, Shortlisted, Generated and Reviewed. Parked and Promoted are search-only, so the Board never becomes a graveyard.

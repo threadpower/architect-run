@@ -109,7 +109,8 @@ if not live:
     LEDGER = os.path.join(BUDGET, "ledger.r3.fixture.json")
 
 # ---------------------------------------------------------------- limits and denylist
-KEYS_NEEDED = ("TASK_USD", "MONTH_USD", "MONTH_HALT_PCT", "WALL_CLOCK_S", "R3_TASK_USD", "ANTHROPIC_MONTH_USD",
+KEYS_NEEDED = ("TASK_USD", "MONTH_USD", "MONTH_HALT_PCT", "WALL_CLOCK_S", "R3_TASK_USD", "R3_HOLD_USD", "R3_LIVE_MAX",
+               "ANTHROPIC_MONTH_USD",
                "ANTHROPIC_IN_PER_M", "ANTHROPIC_OUT_PER_M", "ANTHROPIC_CACHE_WRITE_PER_M",
                "ANTHROPIC_CACHE_READ_PER_M")
 raw_limits = {}
@@ -135,9 +136,20 @@ if r3max <= 0 or r3max > 2 or r3max > L["TASK_USD"]:
     finish(REFUSED, "REFUSED limits.env: R3_TASK_USD must be above 0 and no higher than 2")
 # The month is the whole Anthropic budget, with no percentage line: a run starts only if
 # what is spent plus one full task cap still fits. At 0 no live call is authorized.
-if live and r3max > L["ANTHROPIC_MONTH_USD"]:
+hold_usd, live_max = L["R3_HOLD_USD"], L["R3_LIVE_MAX"]
+if hold_usd <= 0 or hold_usd > r3max:
+    finish(REFUSED, "REFUSED limits.env: R3_HOLD_USD must be above 0 and no higher than R3_TASK_USD")
+if live_max != int(live_max) or live_max > 2:
+    finish(REFUSED, "REFUSED limits.env: R3_LIVE_MAX must be a whole number no higher than 2")
+
+
+def usd(x):
+    return "$%.2f" % x if x >= 0.01 or x == 0 else "$%.4f" % x
+
+
+if live and hold_usd > L["ANTHROPIC_MONTH_USD"]:
     finish(REFUSED, "REFUSED no builder call is authorized: ANTHROPIC_MONTH_USD is $%.2f and one run "
-                    "needs $%.2f. No hold placed, no call made." % (L["ANTHROPIC_MONTH_USD"], r3max))
+                    "needs %s. No hold placed, no call made." % (L["ANTHROPIC_MONTH_USD"], usd(hold_usd)))
 deny = []
 try:
     with open(os.path.join(ROOT, "denylist.txt")) as fh:
@@ -289,29 +301,39 @@ if os.path.exists(LEDGER):
 ledger.setdefault("holds", [])
 m = ledger["months"].setdefault(month, {"spent_usd": 0.0})
 spent, a_spent = float(m.get("spent_usd", 0.0)), float(m.get("anthropic_usd", 0.0))
-# A dry run plays with a month of exactly one task cap, so "one hold fills the month" can be seen at $0.
-a_month = L["ANTHROPIC_MONTH_USD"] if live else r3max
+# A dry run plays with a month of exactly one hold, so "one hold fills the month" can be seen at $0.
+a_month = L["ANTHROPIC_MONTH_USD"] if live else hold_usd
 month_halt = L["MONTH_USD"] * L["MONTH_HALT_PCT"] / 100.0
+# Live calls started this month. A month that already shows Anthropic spend but no counter
+# was written before the counter existed, and that spend was one call.
+attempts = m.get("r3_live_attempts", 1 if a_spent > 0 else 0)
+attempts = attempts if isinstance(attempts, int) and not isinstance(attempts, bool) and attempts >= 0 else int(live_max)
 say("ledger: %s" % os.path.relpath(LEDGER, ROOT))
-say("budget: %s Anthropic $%.4f of $%.2f  all providers $%.2f (halt $%.2f)  this task max $%.2f"
-    % (month, a_spent, a_month, spent, month_halt, r3max))
+say("budget: %s Anthropic $%.4f of $%.2f  all providers $%.2f (halt $%.2f)  hold %s  task cap $%.2f"
+    % (month, a_spent, a_month, spent, month_halt, usd(hold_usd), r3max))
 if ledger["holds"]:
     finish(HALT, "HALT an unreconciled spending hold is open (%s). %s" % (
         ledger["holds"][0].get("id", "?"),
         "Clear it with setup/clear-hold.sh" if live else "Fixture ledger only: delete budget/ledger.r3.fixture.json"))
-if a_spent + r3max > a_month:
-    finish(HALT, "HALT Anthropic spend $%.4f plus this task's $%.2f would pass the month's $%.2f%s"
-           % (a_spent, r3max, a_month, "" if live else ". Fixture ledger only: delete budget/ledger.r3.fixture.json"))
-if live and spent + r3max > month_halt:
-    finish(HALT, "HALT month spend $%.2f plus this task's $%.2f passes the halt line $%.2f"
-           % (spent, r3max, month_halt))
+if a_spent + hold_usd > a_month:
+    finish(HALT, "HALT Anthropic spend $%.4f plus this run's hold of %s would pass the month's %s%s"
+           % (a_spent, usd(hold_usd), usd(a_month), "" if live else ". Fixture ledger only: delete budget/ledger.r3.fixture.json"))
+if live and spent + hold_usd > month_halt:
+    finish(HALT, "HALT month spend $%.2f plus this run's hold of %s passes the halt line $%.2f"
+           % (spent, usd(hold_usd), month_halt))
+if live and attempts >= live_max:
+    finish(HALT, "HALT live R3 calls started this month: %d of %d allowed. No hold placed, no call made."
+           % (attempts, int(live_max)))
 worst = ((len(request_bytes) + 1) // 2 * L["ANTHROPIC_IN_PER_M"] + MAX_TOKENS * L["ANTHROPIC_OUT_PER_M"]) / 1e6
-if worst > r3max:
-    finish(REFUSED, "REFUSED worst-case cost $%.2f is over this task's $%.2f" % (worst, r3max))
-hold = {"id": task["id"], "usd": r3max, "provider": "anthropic", "at": NOW.isoformat(timespec="seconds")}
+if worst > hold_usd:
+    finish(REFUSED, "REFUSED worst-case cost $%.4f is over this run's hold of %s. No hold placed." % (worst, usd(hold_usd)))
+hold = {"id": task["id"], "usd": hold_usd, "provider": "anthropic", "at": NOW.isoformat(timespec="seconds")}
 ledger["holds"].append(hold)
+if live:
+    m["r3_live_attempts"] = attempts + 1
 save_ledger(ledger)
-say("hold: $%.2f placed before the call (worst case estimated at $%.4f)" % (r3max, worst))
+say("hold: %s placed before the call (worst case estimated at $%.4f)%s"
+    % (usd(hold_usd), worst, "; live call %d of %d this month" % (attempts + 1, int(live_max)) if live else ""))
 
 # ---------------------------------------------------------------- the one call
 clean = ["env", "-i", "PATH=/usr/bin:/bin", "python3", CHILD]
@@ -358,8 +380,8 @@ if usage:
         if isinstance(d, (int, float)) and not isinstance(d, bool) and d >= 0:
             cost = max(cost or 0.0, float(d))
 if cost is None:
-    finish(HALT, "HALT no token usage came back; the $%.2f hold stays open and blocks the next run. "
-                 "Nothing written." % r3max)
+    finish(HALT, "HALT no token usage came back; the %s hold stays open and blocks the next run. "
+                 "Nothing written." % usd(hold_usd))
 ledger["holds"] = [h for h in ledger["holds"] if h is not hold]
 m["spent_usd"] = round(spent + cost, 4)
 m["anthropic_usd"] = round(a_spent + cost, 4)

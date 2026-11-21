@@ -9,6 +9,7 @@ import datetime
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -36,6 +37,16 @@ class R3Base(Base):
         super().setUp()
         self.docker_log = os.path.join(self.tmp, "docker.log")
         self.shim("docker", DOCKER)
+        # The mechanism is tested at fixed numbers, whatever limits.env ships with.
+        # test_shipped_numbers_are_the_ruled_ones is the one test that reads the shipped values.
+        self.limit("R3_HOLD_USD", "2")
+        self.limit("R3_LIVE_MAX", "1")
+
+    def limit(self, name, value):
+        path = os.path.join(self.root, "limits.env")
+        text, n = re.subn(r"(?m)^%s=.*$" % name, "%s=%s" % (name, value), read(path))
+        self.assertEqual(n, 1, name)
+        write(path, text)
         self.test_sha = self.sha(os.path.join("inbox", "r3_toy_test.py"))
 
     def sha(self, rel):
@@ -272,13 +283,14 @@ class Money(R3Base):
 
     def test_no_percentage_line_for_anthropic_and_the_cap_is_at_most_2(self):
         src = read(os.path.join(HERE, "r3.py"))
-        self.assertIn("if a_spent + r3max > a_month:", src)
-        self.edit("limits.env", "R3_TASK_USD=2", "R3_TASK_USD=3")
+        self.assertIn("if a_spent + hold_usd > a_month:", src)
+        self.assertNotIn("HALT_PCT\"] / 100.0\na_", src)
+        self.limit("R3_TASK_USD", "3")
         self.wrote_nothing(self.r3(), 2)
 
     def test_shipped_numbers_are_the_ruled_ones(self):
         text = read(os.path.join(HERE, "limits.env"))
-        for line in ("ANTHROPIC_MONTH_USD=2", "R3_TASK_USD=2", "ANTHROPIC_IN_PER_M=0.10", "ANTHROPIC_OUT_PER_M=0.50",
+        for line in ("ANTHROPIC_MONTH_USD=2", "R3_TASK_USD=2", "R3_HOLD_USD=2", "R3_LIVE_MAX=1", "ANTHROPIC_IN_PER_M=0.10", "ANTHROPIC_OUT_PER_M=0.50",
                      "CONSOLE_CAP_ANTHROPIC_USD=40", "XAI_MONTH_USD=15", "CONSOLE_CAP_XAI_IS_REAL=no"):
             self.assertIn("\n" + line + "\n", text)
         src = read(os.path.join(HERE, "r3.py"))
@@ -356,6 +368,69 @@ class LivePathWithoutANetwork(R3Base):
         self.assertIn("child said: python3: can't open file: Permission denied", r.stdout)
         self.assertNotIn(KEY, r.stdout + read(os.path.join(self.root, "log", "run.log")))
         self.assertEqual(len(json.loads(read(os.path.join(self.root, REAL)))["holds"]), 1)
+
+    def seed_like_the_box(self, **month):
+        os.makedirs(os.path.join(self.root, "budget"), exist_ok=True)
+        now = datetime.datetime.now().strftime("%Y-%m")
+        m = {"spent_usd": 0.2043, "xai_usd": 0.2041, "anthropic_usd": 0.0002}
+        m.update(month)
+        write(os.path.join(self.root, REAL), json.dumps({"version": 1, "months": {now: m}, "successes": {}, "holds": []}))
+
+    def real_month(self):
+        return json.loads(read(os.path.join(self.root, REAL)))["months"][datetime.datetime.now().strftime("%Y-%m")]
+
+    def test_at_the_shipped_numbers_a_month_that_had_its_call_starts_nothing(self):
+        self.seed_like_the_box()
+        r = self.r3(live=True)
+        self.assertEqual(r.returncode, 10, r.stdout)
+        self.assertIn("would pass the month's $2.00", r.stdout)
+        self.assertFalse(os.path.exists(self.argv), "the call was started")
+        self.assertEqual(json.loads(read(os.path.join(self.root, REAL)))["holds"], [])
+
+    def test_a_small_hold_and_a_cap_of_two_allow_exactly_one_more_call(self):
+        self.limit("R3_HOLD_USD", "0.001")
+        self.limit("R3_LIVE_MAX", "2")
+        self.seed_like_the_box()                    # spend recorded before the counter existed counts as one call
+        r = self.r3(live=True)
+        self.assertEqual(r.returncode, 0, r.stdout)
+        self.assertIn("hold: $0.0010 placed before the call", r.stdout)
+        self.assertIn("live call 2 of 2 this month", r.stdout)
+        self.assertEqual(self.real_month()["r3_live_attempts"], 2)
+        self.assertAlmostEqual(self.real_month()["anthropic_usd"], 0.0002 + (260 * 0.10 + 70 * 0.50) / 1e6, places=4)
+        os.rename(os.path.join(self.root, "work", "r3-toy"), os.path.join(self.root, "work", "moved"))
+        os.remove(self.argv)
+        r = self.r3(live=True)                      # a third is refused before any hold
+        self.assertEqual(r.returncode, 10, r.stdout)
+        self.assertIn("live R3 calls started this month: 2 of 2 allowed. No hold placed, no call made", r.stdout)
+        self.assertFalse(os.path.exists(self.argv), "a third call was started")
+        self.assertEqual(json.loads(read(os.path.join(self.root, REAL)))["holds"], [])
+
+    def test_the_counter_holds_even_when_the_spend_is_tiny_or_the_child_dies(self):
+        self.limit("R3_HOLD_USD", "0.001")
+        self.seed_like_the_box(anthropic_usd=0.0, r3_live_attempts=1)       # shipped cap is 1
+        r = self.r3(live=True)
+        self.assertEqual(r.returncode, 10, r.stdout)
+        self.assertIn("1 of 1 allowed", r.stdout)
+        self.limit("R3_LIVE_MAX", "2")
+        r = self.r3(live=True, SHIM_CRASH="1")                               # counted when the hold is placed
+        self.assertEqual(r.returncode, 10, r.stdout)
+        self.assertEqual(self.real_month()["r3_live_attempts"], 2)
+
+    def test_the_hold_must_cover_the_worst_case_and_the_numbers_have_ceilings(self):
+        for name, value, needle in (("R3_HOLD_USD", "0.0001", "worst-case cost"),
+                                    ("R3_HOLD_USD", "3", "R3_HOLD_USD must be above 0 and no higher"),
+                                    ("R3_HOLD_USD", "0", "R3_HOLD_USD must be above 0"),
+                                    ("R3_LIVE_MAX", "3", "no higher than 2"),
+                                    ("R3_LIVE_MAX", "1.5", "whole number")):
+            self.tearDown()
+            self.setUp()
+            self.limit(name, value)
+            self.seed_like_the_box(anthropic_usd=0.0, spent_usd=0.2041)
+            r = self.r3(live=True)
+            self.assertEqual(r.returncode, 2, needle + r.stdout)
+            self.assertIn(needle, r.stdout)
+            self.assertFalse(os.path.exists(self.argv))
+            self.assertEqual(json.loads(read(os.path.join(self.root, REAL)))["holds"], [])
 
     def test_a_second_live_run_halts_because_one_hold_fills_the_month(self):
         self.assertEqual(self.r3(live=True).returncode, 0)

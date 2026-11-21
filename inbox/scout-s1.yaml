@@ -1,0 +1,4 @@
+id: scout-s1
+kind: r2
+spec: inbox/scout-s1.md
+expect_sha256: 1e3b89f27c9959729604b5789e0cf9ba72766d8bec654f2f552a68227ffc5266

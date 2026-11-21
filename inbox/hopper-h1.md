@@ -262,7 +262,7 @@ Three slices and a parked fourth, each ending in a proof; nothing later starts u
 | --- | --- | --- |
 | H0 probes | Four hand-run scripts, listed below | Each prints PASS, or names what must be fixed before H2 |
 | H1 the bank | Container at `/forge/hopper` on the shell with QA and prod; `users`, `ideas`, `votes`, `promotions`, `events`; the intake endpoint; Board, Submit, Promote; the package and its post to Warp; Warp's "send to Hopper"; seed import with dry run | A promotion appears as a card in Warp's review queue with a complete package. The seed import run twice adds nothing the second time |
-| H2 the night | `concepts`, `reviews`, `runs`; preflight; prompt writer with the style file; the runner with its three timing rules; two saved workflows; Gallery; Merge; Nights; morning message | Five shortlisted ideas produce twenty concepts by morning, three nights running. The team has thumbed them. One round of notes has changed the next night's output |
+| H2 the night | `concepts`, `reviews`, `runs`; preflight; prompt writer with the style file; the runner with its three timing rules; two saved workflows; Gallery; Merge; Nights; morning message | Five shortlisted ideas produce twenty concepts by morning. One round of notes has changed the next night's output |
 | H3 the feeds | Scout's export; idea-shaped lines from Warp's meeting pass; Luma intake; reference images fed to Klein; model file hashes on concept rows; upscale, background removal and a 5B teaser for Promoted ideas only; pruning of concept files for ideas parked over 90 days | A Scout finding has entered and been voted on like any other idea. A promoted idea with picked concepts has been accepted in Warp. Landing in Plane is Warp's proof, not Hopper's |
 | H4 the public door (parked) | The form, the `inbox` table, moderation as a Board filter, the credit checkbox | Not scheduled. Needs the monthly post to have drawn replies, and the lawyer's terms |
 
@@ -345,3 +345,5 @@ Not adopted, and why:
 ## Grok review 2 (Nov 19, evening)
 
 Grok read the folded doc and confirmed it with no new rulings: every adoption matches, the three rejections stand, and frozen doctrine is untouched. The spec is ready to freeze on Jeremy's ticks. Build order is unchanged: H0 probes on the Windows side, then H1.
+
+Note, Nov 21: that review covers the doc as it stood on Nov 19. The Nov 21 fold of the architect-run round 1 rulings has not been reviewed by Grok, and this spec is not frozen.

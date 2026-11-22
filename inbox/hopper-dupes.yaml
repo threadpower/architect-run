@@ -1,0 +1,11 @@
+# Hopper batch, slice 2 of 3: duplicates. One file, 40 lines.
+# The test file is the contract Grok accepted on Nov 22. It is never sent to the model.
+# There is no solution to this task anywhere in this repository, and there must not be one.
+# Nothing here runs in November. December holds three passing calls and no more, in this order:
+# hopper-intake, hopper-dupes, hopper-package. A failure spends the attempt and stops the batch.
+id: hopper-dupes
+kind: r3
+prose: Write a Python module dupes.py for an idea bank. It is pure: it never reads a file, opens a socket, starts a process or looks at the clock, and it never changes anything passed in. It defines two functions. text_hash(text) returns the SHA-256 of the text's UTF-8 bytes as 64 lowercase hex characters. The text is hashed exactly as given: no trimming, no change of case, no other clean-up. find_duplicate(text, source, ideas) takes the text and the source of a new submission, and ideas, a list of dicts that each have the keys id, text_hash and source. If source is not the string team, return None. Otherwise look only at the ideas whose source is the string team and whose text_hash equals text_hash(text): return the id of that idea, the lowest id if more than one matches, and None if none matches. Return the id itself as it is stored, not a link and not a string.
+impl: dupes.py
+test: inbox/hopper_dupes_test.py
+expect_sha256: 7a152ee9833d220e6bc9f2332d4ff2070697f5fbaad648138abc67f27de63d86

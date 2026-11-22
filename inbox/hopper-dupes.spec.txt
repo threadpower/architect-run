@@ -1,0 +1,9 @@
+# The Hopper spec paragraphs the duplicates slice covers. One paragraph a line, pasted word for word
+# from inbox/hopper-h1.md. r4.py refuses to run if any line is not in that file. Lines that
+# start with # are not sent.
+# Left out on Grok's ruling of Nov 21, because they describe work this slice does not do:
+# the vote sentence that shares a table cell with the duplicate rule.
+A team submission whose text exactly matches an existing team idea is refused with a link to it
+An exact duplicate of a team idea is refused with a link; a Scout or public twin is accepted.
+text_hash (unique where source = team)
+Rules for duplicates, set by Jeremy on Nov 21. The hash is the SHA-256 of the idea's text exactly as it was typed, with no trimming and no change of case, so "Squatch" and "squatch" are different ideas. Only a team submission that matches a team idea is a duplicate. A team idea blocks an exact copy whatever state it is in, parked and promoted included. The refusal carries the id of the idea it copies, and the page turns that id into a link. If the same text is ever stored twice as a team idea, the lower id is the one given.

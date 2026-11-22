@@ -1,0 +1,11 @@
+# The Hopper spec paragraphs the intake slice covers. One paragraph a line, pasted word for word
+# from inbox/hopper-h1.md. r4.py refuses to run if any line is not in that file. Lines that
+# start with # are not sent.
+# Left out on Grok's ruling of Nov 21, because they describe work this slice does not do:
+# the pasted-list sentence, and the duplicate clause of the automatic refusals.
+What every door sends: text, lane, source, submitter (a roster email or a system name), and optionally source_ref, scout_motive, an image. The lane value is lowercase on every door and in the package (apparel, content, story); the page shows the labels capitalised.
+What every door gets back: the idea id, or a refusal with the reason.
+a submitter not on the roster, and a service key submitting as a person. Each service has its own key and submits under its own system name; a service key may not submit as a person.
+source (team, seed, warp, scout, transcript, luma, public)
+An email not on the roster gets the closed door on every route, including the intake endpoint.
+Rules for intake, set by Jeremy on Nov 21. Text that is empty or only spaces is refused. A person submits only as themself, and a service submits only under its own system name. A service submitting as itself may use any source on the list. When more than one refusal applies, the door gives the first of these: not on the roster, wrong submitter, empty text, bad lane, bad source. The closed door comes first, so someone off the roster learns nothing else. The reasons travel as the codes not_on_roster, wrong_submitter, empty_text, bad_lane and bad_source, and the page turns them into words.

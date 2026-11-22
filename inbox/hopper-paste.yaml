@@ -1,0 +1,11 @@
+# Hopper batch 2, slice 1 of 3: pasted list. One file, 40 lines.
+# The test file is the contract Grok accepted on Nov 22. It is never sent to the model.
+# There is no solution to this task anywhere in this repository, and there must not be one.
+# One call a slice, in this order: hopper-paste, hopper-seed, hopper-board. Each needs its own
+# ruling and its own cap move. A failure spends the attempt and stops the batch.
+id: hopper-paste
+kind: r3
+prose: Write a Python module paste.py for an idea bank. It is pure: it never reads a file, opens a socket, starts a process or looks at the clock, and it never changes anything passed in. It defines split_lines(text). text is a str holding one pasted block of text. Split it into lines. A line ends at a line feed, at a carriage return followed by a line feed, or at a carriage return on its own; those three and nothing else. From each line remove the spaces and tabs at its two ends. Drop a line that is then empty. Return what is left as a list of str, in the original order. Change nothing inside a line: inner spaces and tabs, a bullet or a number at the start, quotes and letter case all stay as they are. A line that appears twice is returned twice. Text that is empty or holds only spaces, tabs and line breaks returns an empty list.
+impl: paste.py
+test: inbox/hopper_paste_test.py
+expect_sha256: 76a9152885f204a4feb0579f19f5680c1424035e7e208b3da0ac3f9e302847ae

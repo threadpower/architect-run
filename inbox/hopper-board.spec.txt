@@ -1,0 +1,8 @@
+# The Hopper spec paragraphs the Board slice covers. One paragraph a line, pasted word for word
+# from inbox/hopper-h1.md. r4.py refuses to run if any line is not in that file. Lines that
+# start with # are not sent.
+# Left out: the vote sentence in the middle of the Board row. This slice does not take a vote.
+The Board shows Submitted, Shortlisted, Generated and Reviewed. Parked and Promoted are search-only, so the Board never becomes a graveyard.
+Every open idea, newest first, with score and source tag.
+Filter by lane or source
+Rules for the Board, set by Jeremy on Nov 22. Newest means created latest, and score does not change the order. Two ideas created at the same moment go higher id first. With no filter the Board shows every lane and source, and ideas with no lane. A lane filter hides ideas with no lane. Both filters can be used at once, and an idea must match both. A filter matches exactly, and a value no idea has shows an empty Board, not an error.

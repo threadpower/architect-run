@@ -1,0 +1,6 @@
+# The Hopper spec paragraphs the pasted list slice covers. One paragraph a line, pasted word for word
+# from inbox/hopper-h1.md. r4.py refuses to run if any line is not in that file. Lines that
+# start with # are not sent.
+Submit: one idea, or a pasted list split by line, optional reference image, optional lane (Apparel, Content, Story)
+One box, optional image, optional lane. Paste-a-list mode splits lines into ideas
+Rules for a pasted list, set by Jeremy on Nov 22. Each line of a paste is one idea. A line ends at a line break of any of the three common kinds. Spaces and tabs at the two ends of a line are dropped, and nothing inside the line is changed, so a bullet or a number at the start stays. A blank line, or one with only spaces or tabs, is dropped. A line that appears twice is kept twice, and the duplicate rule at intake deals with it. The trimmed line is the text that is stored and hashed. Text typed into the single box is not trimmed.

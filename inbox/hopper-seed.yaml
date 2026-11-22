@@ -1,0 +1,11 @@
+# Hopper batch 2, slice 2 of 3: seed plan. One file, 40 lines.
+# The test file is the contract Grok accepted on Nov 22. It is never sent to the model.
+# There is no solution to this task anywhere in this repository, and there must not be one.
+# One call a slice, in this order: hopper-paste, hopper-seed, hopper-board. Each needs its own
+# ruling and its own cap move. A failure spends the attempt and stops the batch.
+id: hopper-seed
+kind: r3
+prose: Write a Python module seed.py for an idea bank. It is pure: it never reads a file, opens a socket, starts a process or looks at the clock, and it never changes anything passed in. It defines plan_seed(lines, existing_hashes). lines is a list or tuple of str, the idea texts of a file in order. existing_hashes is a set or frozenset of hash strings. Return a dict with exactly the keys add and skip, in that order, each a list. Go through lines in order. The hash of a text is the SHA-256 of its UTF-8 bytes as 64 lowercase hex characters, of the text exactly as given, with no trimming and no change of case. For each text use the first rule that applies. If the text is empty or holds only whitespace, append {"text": text, "reason": "empty_text"} to skip. Otherwise, if its hash is in existing_hashes, append {"text": text, "reason": "already_imported"} to skip. Otherwise, if a text with the same hash was already put in add earlier in this call, append {"text": text, "reason": "repeated_in_file"} to skip. Otherwise append {"text": text, "text_hash": that hash} to add. The dicts have exactly those keys.
+impl: seed.py
+test: inbox/hopper_seed_test.py
+expect_sha256: 5b5535f194187856905d2ffc0464d68a4ba5236c549ba006d203294ceb0c9b01

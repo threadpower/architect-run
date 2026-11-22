@@ -1,0 +1,7 @@
+# The Hopper spec paragraphs the seed plan slice covers. One paragraph a line, pasted word for word
+# from inbox/hopper-h1.md. r4.py refuses to run if any line is not in that file. Lines that
+# start with # are not sent.
+# Left out on Grok's ruling of Nov 22: the list of source values. This function does not choose a source.
+A named script with a dry run. Hashes each line; running it twice does no harm
+The seed import run twice adds nothing the second time
+Rules for the seed import, set by Jeremy on Nov 22. The dry run is a plan: the lines that would be added, and the lines that would be skipped with a reason. A real run stores exactly what the plan adds. Each line is hashed the same way as a team idea, exactly as it is written. A seed line is compared only with seed ideas already stored and with earlier lines of the same file. A line already stored is skipped as already_imported. A line that repeats inside the file is added once, and the later copies are skipped as repeated_in_file. An empty line is skipped as empty_text. When more than one reason applies, the first of these is given: empty_text, already_imported, repeated_in_file.

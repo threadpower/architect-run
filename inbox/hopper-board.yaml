@@ -1,0 +1,11 @@
+# Hopper batch 2, slice 3 of 3: the Board. One file, 40 lines.
+# The test file is the contract Grok accepted on Nov 22. It is never sent to the model.
+# There is no solution to this task anywhere in this repository, and there must not be one.
+# One call a slice, in this order: hopper-paste, hopper-seed, hopper-board. Each needs its own
+# ruling and its own cap move. A failure spends the attempt and stops the batch.
+id: hopper-board
+kind: r3
+prose: Write a Python module board.py for an idea bank. It is pure: it never reads a file, opens a socket, starts a process or looks at the clock, and it never changes anything passed in. It defines board_rows(ideas, lane=None, source=None). ideas is a list of dicts. Each has the keys id, state, lane, source and created, where created is a timezone-aware datetime, and may have other keys. Keep only the ideas whose state is exactly one of the strings Submitted, Shortlisted, Generated, Reviewed. If lane is not None, keep only the ideas whose lane equals it exactly, so an idea whose lane is None is dropped. If source is not None, keep only the ideas whose source equals it exactly. A lane or source that no idea has gives an empty list and is not an error. Return a new list holding the same dict objects, unchanged and with all their keys, ordered by created with the latest first, and for ideas with an equal created the higher id first. A score on an idea does not affect the order. Do not reorder the list passed in.
+impl: board.py
+test: inbox/hopper_board_test.py
+expect_sha256: 8ff382f261db97f482ce85d68c3c8b557397f6160e39c05d927028b214d3a74b

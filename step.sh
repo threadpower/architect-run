@@ -36,13 +36,19 @@ umask 022
   echo "--- files changed"
   git status --short
   echo "--- tests"
-  python3 -W ignore -m unittest discover -s tests 2>&1 | tail -4
-  TESTS=${PIPESTATUS[0]}
+  TOUT="$(mktemp)"
+  python3 -W ignore -m unittest discover -s tests > "$TOUT" 2>&1
+  TESTS=$?
+  tail -4 "$TOUT"
   if [ "$TESTS" != 0 ]; then
+    echo "--- failing tests (FAIL and ERROR blocks only, first 80 lines)"
+    awk '/^(FAIL|ERROR): /{p=1} /^Ran [0-9]+ tests? in /{p=0} p' "$TOUT" | head -80
+    rm -f "$TOUT"
     git apply -R "$PATCH" 2>&1 && git clean -fdq -- . 2>/dev/null
     echo "RESULT: FAIL the tests did not pass. The patch was taken back out. Nothing committed."
     exit 4
   fi
+  rm -f "$TOUT"
   echo "--- preflight --model (information only)"
   bash preflight.sh --model 2>&1 | tail -14
   echo "--- commit"

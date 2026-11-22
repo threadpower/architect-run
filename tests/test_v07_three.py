@@ -226,6 +226,15 @@ class StepRunner(ThreeBase):
         self.assertFalse(os.path.exists(os.path.join(self.tmp, "reports")))
 
 
+class StepNamesTheFailure(ThreeBase):
+    def test_the_step_runner_names_a_failing_test_and_still_stops_on_the_exit_code(self):
+        step = read(os.path.join(HERE, "step.sh"))
+        self.assertIn('python3 -W ignore -m unittest discover -s tests > "$TOUT" 2>&1\n  TESTS=$?', step)
+        self.assertIn("awk '/^(FAIL|ERROR): /{p=1} /^Ran [0-9]+ tests? in /{p=0} p' \"$TOUT\" | head -80", step)
+        self.assertIn('if [ "$TESTS" != 0 ]; then', step)
+        self.assertNotIn("ARCHITECT_LIVE=1", step)
+
+
 if __name__ == "__main__":
     import unittest
     unittest.main()

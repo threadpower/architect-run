@@ -147,8 +147,8 @@ if r3max <= 0 or r3max > 2 or r3max > L["TASK_USD"]:
 hold_usd, live_max = L["R3_HOLD_USD"], L["R3_LIVE_MAX"]
 if hold_usd <= 0 or hold_usd > r3max:
     finish(REFUSED, "REFUSED limits.env: R3_HOLD_USD must be above 0 and no higher than R3_TASK_USD")
-if live_max != int(live_max) or live_max > 3:
-    finish(REFUSED, "REFUSED limits.env: R3_LIVE_MAX must be a whole number no higher than 3")
+if live_max != int(live_max) or live_max > 4:
+    finish(REFUSED, "REFUSED limits.env: R3_LIVE_MAX must be a whole number no higher than 4")
 if L["R3_HOLD_THREE_USD"] <= 0 or L["R3_HOLD_THREE_USD"] > THREE_HOLD_CEILING:
     finish(REFUSED, "REFUSED limits.env: R3_HOLD_THREE_USD must be above 0 and no higher than %s" % THREE_HOLD_CEILING)
 

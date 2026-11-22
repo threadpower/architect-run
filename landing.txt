@@ -5,3 +5,4 @@ hopper-intake hopper
 hopper-dupes hopper
 hopper-package hopper
 hopper-paste hopper
+hopper-seed hopper

@@ -1,0 +1,10 @@
+# Review task for the built slice hopper-intake (call 4 of 4, Nov 22, exit 0, cage exit 0).
+# The hashes come from outbox/2026-11-22-hopper-intake.md and pin exactly what the reviewer is sent.
+# One live review call is authorized by Grok's ruling of Nov 22. Not a second.
+id: hopper-intake-review
+kind: r4
+slice: inbox/hopper-intake.yaml
+spec: inbox/hopper-h1.md
+excerpt: inbox/hopper-intake.spec.txt
+expect_excerpt_sha256: 611cfffe6b31428363e794ffc80b95dc5a3bd765be92697b610a6d0fafd43df2
+files_sha256: dbf6ebf78010b371d0060f92efc207b468fb63ec45db43e391659fb64fea56ee

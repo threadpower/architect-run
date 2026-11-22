@@ -1,0 +1,7 @@
+id: hopper-votes-review
+kind: r4
+slice: inbox/hopper-votes.yaml
+spec: inbox/hopper-h1.md
+excerpt: inbox/hopper-votes.spec.txt
+expect_excerpt_sha256: 5c2301ab7c849623bf8f9d45e36de90cb31e91fe8367cef5a3fd2eb53d372778
+files_sha256: 21c175348198fd3683020f3c1ebed36a3371848cfff700d1610fe2bd4654b488 b557ef69d3950fd03235d9e9a663b551ef8c85b13f45eaaec2a65f3b38f3e4d2 69ac8f0dddcaa986733db7099757e0f2c586e9e0a4a192bfa59bb9e235928cb4

@@ -1,0 +1,9 @@
+# Review task for the built slice hopper-paste. Written by review_task.py from the files on disk.
+# No model wrote or chose anything here. The hashes pin exactly what the reviewer is sent.
+id: hopper-paste-review
+kind: r4
+slice: inbox/hopper-paste.yaml
+spec: inbox/hopper-h1.md
+excerpt: inbox/hopper-paste.spec.txt
+expect_excerpt_sha256: 864f8189445349922d4e7a10b70b511824afe4b152fdf69ecdcf76f86502cb13
+files_sha256: f60afaf43278331809e9b3284d4c746fe2b34b4ff48d3d7503f5a3eecb9fe8e4

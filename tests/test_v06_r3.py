@@ -290,7 +290,7 @@ class Money(R3Base):
 
     def test_shipped_numbers_are_the_ruled_ones(self):
         text = read(os.path.join(HERE, "limits.env"))
-        for line in ("ANTHROPIC_MONTH_USD=2", "R3_TASK_USD=2", "R3_HOLD_USD=0.001", "R3_LIVE_MAX=7", "ANTHROPIC_IN_PER_M=0.10", "ANTHROPIC_OUT_PER_M=0.50",
+        for line in ("ANTHROPIC_MONTH_USD=2", "R3_TASK_USD=2", "R3_HOLD_USD=0.001", "R3_LIVE_MAX=8", "ANTHROPIC_IN_PER_M=0.10", "ANTHROPIC_OUT_PER_M=0.50",
                      "CONSOLE_CAP_ANTHROPIC_USD=40", "XAI_MONTH_USD=15", "CONSOLE_CAP_XAI_IS_REAL=no"):
             self.assertIn("\n" + line + "\n", text)
         src = read(os.path.join(HERE, "r3.py"))
@@ -420,7 +420,7 @@ class LivePathWithoutANetwork(R3Base):
         for name, value, needle in (("R3_HOLD_USD", "0.0001", "worst-case cost"),
                                     ("R3_HOLD_USD", "3", "R3_HOLD_USD must be above 0 and no higher"),
                                     ("R3_HOLD_USD", "0", "R3_HOLD_USD must be above 0"),
-                                    ("R3_LIVE_MAX", "8", "no higher than 7"),
+                                    ("R3_LIVE_MAX", "9", "no higher than 8"),
                                     ("R3_LIVE_MAX", "1.5", "whole number")):
             self.tearDown()
             self.setUp()

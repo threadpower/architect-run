@@ -1,0 +1,1 @@
+{"id": "fixture", "choices": [{"message": {"role": "assistant", "content": "{\"summary\": \"The code does what the paragraphs say and touches nothing it may not.\", \"findings\": []}"}}], "usage": {"prompt_tokens": 3000, "completion_tokens": 300, "completion_tokens_details": {"reasoning_tokens": 500}}}

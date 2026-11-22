@@ -50,7 +50,7 @@ want CONSOLE_CAP_XAI_IS_REAL no
 want CONSOLE_CAP_XAI_USD ""
 want XAI_MONTH_USD 15
 want R2_TASK_USD 2
-for f in r2.py r2_child.py r2.sh; do
+for f in r2.py r2_child.py r2.sh r4.py r4.sh; do
   grep -qi "anthropic" "$ROOT/$f" 2>/dev/null && BAD+=("$f mentions the Anthropic key")
 done
 

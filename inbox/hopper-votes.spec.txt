@@ -1,0 +1,11 @@
+# The Hopper spec paragraphs the votes slice covers. One paragraph a line, pasted word for word
+# from inbox/hopper-h1.md. r4.py refuses to run if any line is not in that file. Lines that
+# start with # are not sent.
+People move an idea into Submitted, Reviewed, Promoted and Parked. Two states are set by rule: Shortlisted, when an idea's vote score clears the bar, and Generated, when the runner finishes the night's batch.
+One vote per person per idea; a second tap removes it.
+The bar is a number in config, not a judgment
+Nothing is deleted. Parked ideas can be revived. The runner ignores them
+Scores are computed, never stored. Vote score is the sum of votes, each decayed with a 14-day half-life.
+The half-life and the shortlist bar are config numbers; neither score is stored.
+Three rules for the bar and the night's list, set by Jeremy on Nov 21. An idea clears the bar when its score is at or above it. Once an idea is Shortlisted it stays Shortlisted, even if its score later drops below the bar, until a person moves it. When two shortlisted ideas have the same score, the older one goes first, then the one with the lower id.
+Top N shortlisted ideas by score. Config: N = 5, 4 prompts per idea, 14-day vote half-life.

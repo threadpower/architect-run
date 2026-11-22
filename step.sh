@@ -29,7 +29,10 @@ umask 022
   echo "before: $(git log -1 --format='%h %s')"
   if ! git apply --check "$PATCH" 2>&1; then echo "RESULT: REFUSED the patch does not apply. Nothing changed."; exit 3; fi
   git apply "$PATCH" 2>&1
-  for c in r2_child.py r3_child.py; do [ -f "$c" ] && chmod 644 "$c"; done
+  # architect must be able to read the child scripts. One that already is readable is left alone.
+  for c in r2_child.py r3_child.py; do
+    [ -f "$c" ] && [ -z "$(find "$c" -perm -004)" ] && chmod o+r "$c"
+  done
   echo "--- files changed"
   git status --short
   echo "--- tests"

@@ -1,3 +1,6 @@
 # Slices that may be copied to the landing place, one a line:  <slice id> <project>
 # A slice is named here only by a commit Jeremy makes after Grok has named it in a ruling.
 # land.sh copies nothing that is not on this list. Lines that start with # are ignored.
+hopper-intake hopper
+hopper-dupes hopper
+hopper-package hopper
